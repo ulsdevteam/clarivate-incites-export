@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net5.0</TargetFramework>
+        <RootNamespace>clarivate_incites_export</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="CsvHelper" Version="26.1.0" />
+      <PackageReference Include="Dapper" Version="2.0.78" />
+      <PackageReference Include="dotenv.net" Version="3.0.0" />
+      <PackageReference Include="Microsoft.Extensions.Configuration" Version="5.0.0" />
+      <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="5.0.0" />
+      <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="3.21.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Update=".env">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+      <None Update="Researcher Identifier Values.csv">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
+</Project>
