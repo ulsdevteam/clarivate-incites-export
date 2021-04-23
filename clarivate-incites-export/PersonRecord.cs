@@ -37,7 +37,7 @@ namespace clarivate_incites_export
 
         public PersonRecord(Person person)
         {
-            PersonId = person.Username;
+            PersonId = person.EmployeeNbr;
             FirstName = person.FirstName;
             LastName = person.LastName;
             OrganizationId = person.OrganizationId;

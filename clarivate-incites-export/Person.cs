@@ -5,11 +5,14 @@ namespace clarivate_incites_export
 {
     public class Person
     {
+        public string EmplId { get; set; }
+        public string EmployeeNbr { get; set; }
         public string Username { get; set; }
         public string FirstName { get; set; }
         public string LastName { get; set; }
         public string OrganizationId { get; set; }
         public HashSet<Identifier> Identifiers { get; set; } = new HashSet<Identifier>();
+        public HashSet<string> EmailAddresses { get; set; } = new HashSet<string>();
 
         public void Combine(Person other)
         {
