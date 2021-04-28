@@ -37,7 +37,7 @@ namespace clarivate_incites_export
 			join UD_DATA.UD_CALENDAR cal on pye.CALENDAR_KEY = cal.CALENDAR_KEY
 			
 			where cal.CALENDAR_KEY = SYS_CONTEXT ('G$CONTEXT', 'PYM_CU_CAL_K_0000')
-			and udd.current_flg = 1 and udj.current_flg = 1
+			and udd.current_flg = 1 and udj.current_flg = 1 and urc.current_flg = 1
 			and udj.JOB_TYPE in ('Academic', 'Faculty', 'Post Doctoral')";
 
 	    static readonly string ResearcherIdsSql = @"
