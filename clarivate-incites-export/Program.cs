@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -61,7 +60,18 @@ namespace clarivate_incites_export
                 .Build();
 
             using var udDataConnection = new OracleConnection(Config["UD_DATA_CONNECTION"]);
-            var employeeData = udDataConnection.Query(EmployeeDataSql + " fetch next 50 rows only").ToList();
+            var employeeData = udDataConnection.Query<(
+	            string EMPLID,
+	            string EMPLOYEE_NBR,
+	            string USERNAME,
+	            string LAST_NAME,
+	            string FIRST_NAME,
+	            string EMAIL_ADDRESS,
+	            string DEPARTMENT_CD,
+	            string DEPARTMENT_DESCR,
+	            string RESPONSIBILITY_CENTER_CD,
+	            string RESPONSIBILITY_CENTER_DESCR
+	            )>(EmployeeDataSql).ToList();
 
             var employees = employeeData.Select(e => new Person
             {
@@ -93,12 +103,17 @@ namespace clarivate_incites_export
             var employeeLookupByEmplId = employees.Where(e => e.EmplId is not null).ToLookup(e => e.EmplId);
             var employeeLookupByUsername = employees.Where(e => e.Username is not null).ToLookup(e => e.Username);
 
-            var researchIdentifiers =
-	            udDataConnection.Query(ResearcherIdsSql);
+            var researchIdentifiers = udDataConnection.Query<(
+	            string EMPLID,
+	            string USERNAME,
+	            string EMAIL,
+	            string DISPLAY_NAME,
+	            string IDENTIFIER_VALUE
+	            )>(ResearcherIdsSql);
 
             foreach (var id in researchIdentifiers)
             {
-	            foreach (var employee in employeeLookupByEmplId[(string) id.EMPLID].Concat(employeeLookupByUsername[(string) id.USERNAME]))
+	            foreach (var employee in employeeLookupByEmplId[id.EMPLID].Concat(employeeLookupByUsername[id.USERNAME]))
 	            {
 		            if (id.EMAIL is not null) employee.EmailAddresses.Add(id.EMAIL);
 
@@ -110,17 +125,17 @@ namespace clarivate_incites_export
             }
 	        
             using var orcidConnection = new OracleConnection(Config["ORCID_CONNECTION"]);
-            var orcids = orcidConnection.Query(OrcidSql);
+            var orcids = orcidConnection.Query<(string USERNAME, string ORCID)>(OrcidSql);
             foreach (var orcid in orcids)
             {
-	            foreach (var employee in employeeLookupByUsername[(string) orcid.USERNAME])
+	            foreach (var employee in employeeLookupByUsername[orcid.USERNAME])
 	            {
 		            employee.Identifiers.Add(new Identifier("ORCID", orcid.ORCID));
 	            }
             }
 	        
-            WriteToCsv("OrgHierarchySample.csv", orgHierarchy);
-            WriteToCsv("ResearchersSample.csv", employees.Select(e => new PersonRecord(e)));
+            WriteToCsv("OrgHierarchySample_All.csv", orgHierarchy);
+            WriteToCsv("ResearchersSample_All.csv", employees.Select(e => new PersonRecord(e)));
         }
 
         static void WriteToCsv<T>(string outputPath, IEnumerable<T> records)
