@@ -9,7 +9,7 @@ namespace clarivate_incites_export
 
         public Identifier(string name, string value)
         {
-            Name = name;
+            Name = TranslateName(name);
             Value = value;
         }
 
@@ -22,5 +22,16 @@ namespace clarivate_incites_export
         public static bool operator ==(Identifier left, Identifier right) => left.Equals(right);
 
         public static bool operator !=(Identifier left, Identifier right) => !left.Equals(right);
+
+        public override string ToString() => $"{Name}:{Value}";
+
+        static string TranslateName(string displayName) => displayName switch
+        {
+            "Scopus ID" => "SCOPUS",
+            "arXiv Author Identifier" => "ARXIV",
+            "SSRN Author ID" => "SSRN",
+            "ResearcherID" => "WOS",
+            _ => displayName
+        };
     }
 }

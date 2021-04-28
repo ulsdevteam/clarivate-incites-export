@@ -1,10 +1,11 @@
-﻿using CsvHelper.Configuration.Attributes;
+﻿using System.Linq;
+using CsvHelper.Configuration.Attributes;
 
 namespace clarivate_incites_export
 {
     class PersonRecord
     {
-        // ID from peoplesoft
+        // ID from peoplesoft / employee number
         [Index(0)]
         public string PersonId { get; set; }
         
@@ -20,7 +21,7 @@ namespace clarivate_incites_export
         [Index(4)]
         public string DocumentId { get; set; }
         
-        // orcid/symplectic id/web of science id?
+        // identifiers
         [Index(5)]
         public string AuthorId { get; set; }
         
@@ -41,6 +42,12 @@ namespace clarivate_incites_export
             FirstName = person.FirstName;
             LastName = person.LastName;
             OrganizationId = person.OrganizationId;
+            AuthorId = person.Identifiers.Count > 1
+                ? string.Join("",person.Identifiers.Select(id => $"({id})"))
+                : person.Identifiers.Select(id => id.ToString()).SingleOrDefault();
+            EmailAddress = person.EmailAddresses.Count > 1
+                ? string.Join("",person.EmailAddresses.Select(email => $"({email})"))
+                : person.EmailAddresses.SingleOrDefault();
         }
     }
 }
