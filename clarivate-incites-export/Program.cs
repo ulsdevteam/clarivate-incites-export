@@ -61,7 +61,7 @@ namespace clarivate_incites_export
                 .Build();
 
             using var udDataConnection = new OracleConnection(Config["UD_DATA_CONNECTION"]);
-            var employeeData = udDataConnection.Query(EmployeeDataSql).ToList();
+            var employeeData = udDataConnection.Query(EmployeeDataSql + " fetch next 50 rows only").ToList();
 
             var employees = employeeData.Select(e => new Person
             {
@@ -90,21 +90,16 @@ namespace clarivate_incites_export
 			            OrganizationName = rcGroup.First().RESPONSIBILITY_CENTER_DESCR
 		            })).ToList();
 	        
-            var employeeLookupByEmplId = employees.Where(e => e.EmplId is not null).ToDictionary(e => e.EmplId);
-            var employeeLookupByUsername = employees.Where(e => e.Username is not null).ToDictionary(e => e.Username);
+            var employeeLookupByEmplId = employees.Where(e => e.EmplId is not null).ToLookup(e => e.EmplId);
+            var employeeLookupByUsername = employees.Where(e => e.Username is not null).ToLookup(e => e.Username);
 
             var researchIdentifiers =
 	            udDataConnection.Query(ResearcherIdsSql);
 
             foreach (var id in researchIdentifiers)
             {
-	            Person employee = null;
-	            if (id.EMPLID is not null && employeeLookupByEmplId.TryGetValue(id.EMPLID, out employee) ||
-	                id.USERNAME is not null && employeeLookupByUsername.TryGetValue(id.USERNAME, out employee))
+	            foreach (var employee in employeeLookupByEmplId[(string) id.EMPLID].Concat(employeeLookupByUsername[(string) id.USERNAME]))
 	            {
-		            // employee is guaranteed not to be null if the above if condition returned true
-		            Debug.Assert(employee != null, nameof(employee) + " != null");
-			        
 		            if (id.EMAIL is not null) employee.EmailAddresses.Add(id.EMAIL);
 
 		            if (id.DISPLAY_NAME == "Email address")
@@ -118,7 +113,7 @@ namespace clarivate_incites_export
             var orcids = orcidConnection.Query(OrcidSql);
             foreach (var orcid in orcids)
             {
-	            if (employeeLookupByUsername.TryGetValue((string) orcid.USERNAME, out var employee))
+	            foreach (var employee in employeeLookupByUsername[(string) orcid.USERNAME])
 	            {
 		            employee.Identifiers.Add(new Identifier("ORCID", orcid.ORCID));
 	            }
