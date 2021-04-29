@@ -21,4 +21,10 @@
       </None>
     </ItemGroup>
 
+    <ItemGroup>
+      <EmbeddedResource Include="sql\EmployeeDataQuery.sql" />
+      <EmbeddedResource Include="sql\OrcidQuery.sql" />
+      <EmbeddedResource Include="sql\ResearcherIdsQuery.sql" />
+    </ItemGroup>
+
 </Project>
