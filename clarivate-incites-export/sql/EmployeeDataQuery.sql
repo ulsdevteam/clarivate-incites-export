@@ -29,7 +29,8 @@ and (
     and uas.ASSIGNMENT_STATUS_KEY not in (17, 18))
     or
     -- Health Sciences
-    (urc.RESPONSIBILITY_CENTER_CD in (30, 31, 32, 33, 34, 35, 39, 55) 
+    (urc.RESPONSIBILITY_CENTER_CD in (30, 31, 32, 33, 34, 35, 39, 55)
+    and udj.JOB_TYPE = 'Faculty'
     and uas.ASSIGNMENT_STATUS_KEY = 28 
     and udd.DEPARTMENT_KEY != 36600)
 )
