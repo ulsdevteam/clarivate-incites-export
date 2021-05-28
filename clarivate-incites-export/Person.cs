@@ -11,6 +11,7 @@ namespace clarivate_incites_export
         public string FirstName { get; set; }
         public string LastName { get; set; }
         public string OrganizationId { get; set; }
+        public string OrganizationName { get; set; }
         public HashSet<Identifier> Identifiers { get; init; } = new HashSet<Identifier>();
         public HashSet<string> EmailAddresses { get; init; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     }

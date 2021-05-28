@@ -7,7 +7,7 @@ namespace clarivate_incites_export
     {
         // ID from peoplesoft / employee number
         [Index(0)]
-        public string PersonId { get; set; }
+        public string PersonID { get; set; }
         
         [Index(1)]
         public string FirstName { get; set; }
@@ -16,38 +16,41 @@ namespace clarivate_incites_export
         public string LastName { get; set; }
         
         [Index(3)]
-        public string OrganizationId { get; set; }
-        
+        public string OrganizationID { get; set; }
         [Index(4)]
-        public string DocumentId { get; set; }
+        public string OrganizationName { get; set; }
+        
+        [Index(5)]
+        public string DocumentID { get; set; }
         
         // identifiers
-        [Index(5)]
-        public string AuthorId { get; set; }
-        
         [Index(6)]
-        public string EmailAddress { get; set; }
+        public string AuthorID { get; set; }
         
         [Index(7)]
-        public string OtherNames { get; set; }
+        public string EmailAddress { get; set; }
         
         [Index(8)]
+        public string OtherNames { get; set; }
+        
+        [Index(9)]
         public string FormerInstitution { get; set; }
         
         public PersonRecord() {}
 
         public PersonRecord(Person person)
         {
-            PersonId = person.EmployeeNbr;
+            PersonID = person.EmployeeNbr;
             FirstName = person.FirstName;
             LastName = person.LastName;
-            OrganizationId = person.OrganizationId;
-            AuthorId = person.Identifiers.Count > 1
+            OrganizationID = person.OrganizationId;
+            OrganizationName = person.OrganizationName;
+            AuthorID = person.Identifiers.Count > 1
                 ? string.Join("",person.Identifiers.Select(id => $"({id})"))
                 : person.Identifiers.Select(id => id.ToString()).SingleOrDefault();
             EmailAddress = person.EmailAddresses.Count > 1
                 ? string.Join("",person.EmailAddresses.Select(email => $"({email})"))
-                : person.EmailAddresses.SingleOrDefault();
+                : person.EmailAddresses.SingleOrDefault() ?? "no_email@pitt.edu";
         }
     }
 }
