@@ -8,7 +8,8 @@ ude.EMAIL_ADDRESS,
 udd.DEPARTMENT_CD,
 udd.DEPARTMENT_DESCR,
 urc.RESPONSIBILITY_CENTER_CD,
-urc.RESPONSIBILITY_CENTER_DESCR
+urc.RESPONSIBILITY_CENTER_DESCR,
+ude.FACULTY_TENURE_STATUS_DESCR
 
 from UD_DATA.PY_EMPLOYMENT pye
 join UD_DATA.UD_EMPLOYEE ude on pye.EMPLOYEE_KEY = ude.EMPLOYEE_KEY
@@ -22,3 +23,13 @@ join UD_DATA.UD_CALENDAR cal on pye.CALENDAR_KEY = cal.CALENDAR_KEY
 where cal.CALENDAR_KEY = SYS_CONTEXT ('G$CONTEXT', 'PYM_CU_CAL_K_0000')
 and udd.current_flg = 1 and udj.current_flg = 1 and urc.current_flg = 1
 and udj.JOB_TYPE in ('Academic', 'Faculty', 'Post Doctoral')
+and (
+    -- SSoE
+    (urc.RESPONSIBILITY_CENTER_CD = 23 
+    and uas.ASSIGNMENT_STATUS_KEY not in (17, 18))
+    or
+    -- Health Sciences
+    (urc.RESPONSIBILITY_CENTER_CD in (30, 31, 32, 33, 34, 35, 39, 55) 
+    and uas.ASSIGNMENT_STATUS_KEY = 28 
+    and udd.DEPARTMENT_KEY != 36600)
+)

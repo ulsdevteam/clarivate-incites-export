@@ -40,7 +40,8 @@ namespace clarivate_incites_export
                 string DEPARTMENT_CD,
                 string DEPARTMENT_DESCR,
                 string RESPONSIBILITY_CENTER_CD,
-                string RESPONSIBILITY_CENTER_DESCR
+                string RESPONSIBILITY_CENTER_DESCR,
+                string FACULTY_TENURE_STATUS_DESCR
                 )>(GetSql("EmployeeDataQuery.sql")).ToList();
 
             var employees = employeeData.Select(e => new Person
@@ -50,29 +51,36 @@ namespace clarivate_incites_export
                 Username = e.USERNAME,
                 FirstName = e.FIRST_NAME,
                 LastName = e.LAST_NAME,
-                OrganizationId = e.DEPARTMENT_CD,
-				OrganizationName = e.DEPARTMENT_DESCR,
+                OrganizationId = e.DEPARTMENT_CD + TenureCode(e.FACULTY_TENURE_STATUS_DESCR),
+                OrganizationName = e.DEPARTMENT_DESCR + " - " + TenureDesc(e.FACULTY_TENURE_STATUS_DESCR),
+                TenureStatus = e.FACULTY_TENURE_STATUS_DESCR,
                 EmailAddresses = e.EMAIL_ADDRESS is not null
                     ? new HashSet<string>(StringComparer.OrdinalIgnoreCase) { e.EMAIL_ADDRESS }
                     : new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             }).ToList();
 
-            var topLevelOrg = new OrgHierarchyRecord { OrganizationID = "100000", OrganizationName = "University of Pittsburgh" };
+            var topLevelOrg = new OrgHierarchyRecord { OrganizationID = "1000000", OrganizationName = "University of Pittsburgh" };
             var orgHierarchy = new List<OrgHierarchyRecord>() { topLevelOrg };
             orgHierarchy.AddRange(employeeData
                 .GroupBy(e => e.RESPONSIBILITY_CENTER_CD)
                 .SelectMany(rcGroup =>
                 {
-                    var depts = rcGroup.GroupBy(e => e.DEPARTMENT_CD)
-                        .Select(depGroup => new OrgHierarchyRecord
+                    var deptGroups = rcGroup.GroupBy(e => e.DEPARTMENT_CD).ToList();
+                    var depts = deptGroups
+                        .SelectMany(depGroup => depGroup.GroupBy(d => (TenureCode(d.FACULTY_TENURE_STATUS_DESCR), TenureDesc(d.FACULTY_TENURE_STATUS_DESCR))).Select(t => new OrgHierarchyRecord
                         {
-                            OrganizationID = depGroup.Key,
+                            OrganizationID = depGroup.Key + t.Key.Item1,
+                            OrganizationName = depGroup.First().DEPARTMENT_DESCR + " - " + t.Key.Item2,
+                            ParentOrgaID = depGroup.Key + "0"
+                        }).Prepend(new OrgHierarchyRecord
+                        {
+                            OrganizationID = depGroup.Key + "0",
                             OrganizationName = depGroup.First().DEPARTMENT_DESCR,
-                            ParentOrgaID = rcGroup.Key != "00" ? rcGroup.Key + "000" : topLevelOrg.OrganizationID
-                        });
+                            ParentOrgaID = rcGroup.Key != "00" ? rcGroup.Key + "0000" : topLevelOrg.OrganizationID
+                        }));
                     return rcGroup.Key == "00" ? depts : depts.Prepend(new OrgHierarchyRecord
                     {
-                        OrganizationID = rcGroup.Key + "000",
+                        OrganizationID = rcGroup.Key + "0000",
                         OrganizationName = rcGroup.First().RESPONSIBILITY_CENTER_DESCR,
                         ParentOrgaID = topLevelOrg.OrganizationID
                     });
@@ -115,6 +123,20 @@ namespace clarivate_incites_export
             WriteToCsv(options.OrgHierarchyCsvOutputPath, orgHierarchy);
             WriteToCsv(options.ResearchersCsvOutputPath, employees.Select(e => new PersonRecord(e)));
         }
+
+        static string TenureCode(string tenureStatus) => tenureStatus switch
+        {
+            null or "" or "Non-Tenured" => "1",
+            "Tenure Stream" => "2",
+            "Tenured" => "3"
+        };
+
+        static string TenureDesc(string tenureStatus) => tenureStatus switch
+        {
+            null or "" or "Non-Tenured" => "Non tenure track",
+            "Tenure Stream" => "Tenure track, pre-tenure",
+            "Tenured" => "Tenure track, tenured"
+        };
 
         static string GetSql(string filename)
         {
