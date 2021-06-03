@@ -24,12 +24,24 @@ namespace clarivate_incites_export
                 .AddEnvironmentVariables()
                 .Build();
 
-            Parser.Default.ParseArguments<Options>(args).WithParsed(RunExport);
+            Parser.Default.ParseArguments<Options>(args).WithParsed(options => {
+				try
+				{
+					RunExport(options);
+				}
+				catch (ConnectionException e)
+				{
+					Console.Error.WriteLine(e);
+				}
+				catch (OracleException e) {
+					Console.Error.WriteLine("Oracle Error: " + e);
+				}
+			});
         }
 
         static void RunExport(Options options)
         {
-            using var udDataConnection = new OracleConnection(Config["UD_DATA_CONNECTION"]);
+            using var udDataConnection = Connect("UD_DATA_CONNECTION");
             var employeeData = udDataConnection.Query<(
                 string EMPLID,
                 string EMPLOYEE_NBR,
@@ -93,7 +105,7 @@ namespace clarivate_incites_export
                 string EMPLID,
                 string USERNAME,
                 string EMAIL,
-                string DISPLAY_NAME,
+                string IDENTIFIER_ID,
                 string IDENTIFIER_VALUE
                 )>(GetSql("ResearcherIdsQuery.sql"));
 
@@ -103,14 +115,15 @@ namespace clarivate_incites_export
                 {
                     if (id.EMAIL is not null) employee.EmailAddresses.Add(id.EMAIL);
 
-                    if (id.DISPLAY_NAME == "Email address")
+					// ID of 17 is an email address
+                    if (id.IDENTIFIER_ID == "17")
                         employee.EmailAddresses.Add(id.IDENTIFIER_VALUE);
                     else
-                        employee.Identifiers.Add(new Identifier(id.DISPLAY_NAME, id.IDENTIFIER_VALUE));
+                        employee.Identifiers.Add(new Identifier(Identifier.TranslateId(id.IDENTIFIER_ID), id.IDENTIFIER_VALUE));
                 }
             }
 
-            using var orcidConnection = new OracleConnection(Config["ORCID_CONNECTION"]);
+            using var orcidConnection = Connect("ORCID_CONNECTION");
             var orcids = orcidConnection.Query<(string USERNAME, string ORCID)>(GetSql("OrcidQuery.sql"));
             foreach (var orcid in orcids)
             {
@@ -124,18 +137,33 @@ namespace clarivate_incites_export
             WriteToCsv(options.ResearchersCsvOutputPath, employees.Select(e => new PersonRecord(e)));
         }
 
+		static OracleConnection Connect(string connectionStringName) {
+			try
+			{				
+				var connection = new OracleConnection(Config[connectionStringName]);
+				connection.Open();
+				return connection;
+			}
+			catch (System.InvalidOperationException e) when (e.Message == "OracleConnection.ConnectionString is invalid")
+			{				
+				throw new ConnectionException($"Connection string '{connectionStringName}' is invalid and a connection to oracle could not be made.", e);
+			}
+		}
+
         static string TenureCode(string tenureStatus) => tenureStatus switch
         {
             null or "" or "Non-Tenured" => "1",
             "Tenure Stream" => "2",
-            "Tenured" => "3"
+            "Tenured" => "3",
+			_ => throw new ArgumentException("Unrecognized Tenure Status value.", nameof(tenureStatus))
         };
 
         static string TenureDesc(string tenureStatus) => tenureStatus switch
         {
             null or "" or "Non-Tenured" => "Non tenure track",
             "Tenure Stream" => "Tenure track, pre-tenure",
-            "Tenured" => "Tenure track, tenured"
+            "Tenured" => "Tenure track, tenured",
+			_ => throw new ArgumentException("Unrecognized Tenure Status value.", nameof(tenureStatus))
         };
 
         static string GetSql(string filename)

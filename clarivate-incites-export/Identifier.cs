@@ -9,7 +9,7 @@ namespace clarivate_incites_export
 
         public Identifier(string name, string value)
         {
-            Name = TranslateName(name);
+            Name = name;
             Value = value;
         }
 
@@ -25,13 +25,15 @@ namespace clarivate_incites_export
 
         public override string ToString() => $"{Name}:{Value}";
 
-        static string TranslateName(string displayName) => displayName switch
+        public static string TranslateId(string id) => id switch
         {
-            "Scopus ID" => "SCOPUS",
-            "arXiv Author Identifier" => "ARXIV",
-            "SSRN Author ID" => "SSRN",
-            "ResearcherID" => "WOS",
-            _ => displayName
+            "8" => "WOS",
+            "9" => "ORCID",
+            "10" => "SCOPUS",
+            "11" => "ARXIV",
+            "17" => "EMAIL",
+            "23" => "SSRN",
+            _ => throw new ArgumentException("Unrecognized research identifier id.", nameof(id))
         };
     }
 }
