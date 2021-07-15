@@ -22,11 +22,34 @@ join UD_DATA.UD_CALENDAR cal on pye.CALENDAR_KEY = cal.CALENDAR_KEY
 
 where cal.CALENDAR_KEY = SYS_CONTEXT ('G$CONTEXT', 'PYM_CU_CAL_K_0000')
 and udd.current_flg = 1 and udj.current_flg = 1 and urc.current_flg = 1
-and udj.JOB_TYPE in ('Academic', 'Faculty', 'Post Doctoral')
 and (
     -- SSoE
+    /*
+    -- Filtered by Excluded (12) (
+        Faculty (Job Type) + Adjunct Assistant (Job Family), 
+        Faculty (Job Type) + Adjunct Associate (Job Family), 
+        Faculty (Job Type) + Visiting Research (Job Family), 
+        Faculty (Job Type) + Adjunct Research (Job Family), 
+        Faculty (Job Type) + Adjunct Research Assistant (Job Family), 
+        Faculty (Job Type) + Adjunct (Job Family), 
+        Faculty (Job Type) + Lecturer (Job Family), 
+        Faculty (Job Type) + Lecturer (Job Family), 
+        Faculty (Job Type) + Scholar (Job Family), 
+        Faculty (Job Type) + Instructor (Job Family), 
+        Post Doctoral (Job Type), 
+        Academic (Job Type)
+        ), ASSIGNMENT_STATUS (is Terminated between July 2019 and June 2020 or Active), RESPONSIBILITY_CENTER_DESCR (is Swanson School of Engineering)
+    */
     (urc.RESPONSIBILITY_CENTER_CD = 23 
-    and uas.ASSIGNMENT_STATUS_KEY not in (17, 18))
+    and udj.JOB_TYPE = 'Faculty'
+    and (uas.ASSIGNMENT_STATUS_KEY not in (17, 18) or
+        (uas.ASSIGNMENT_STATUS_KEY in (17, 18) and ude.last_day_worked_dt >= '01-JUL-19'))
+    and udj.JOB_FAMILY not in 
+        ('Adjunct Assistant', 'Adjunct Associate', 'Visiting Research', 'Adjunct Research', 'Adjunct Research Assistant',
+        'Adjunct', 'Lecturer', 'Scholar', 'Instructor'))
+    or
+    -- Dental Medicine
+    (urc.RESPONSIBILITY_CENTER_CD = 31 and udj.JOB_TYPE in ('Academic', 'Faculty', 'Post Doctoral'))
     or
     -- Health Sciences
     (urc.RESPONSIBILITY_CENTER_CD in (30, 31, 32, 33, 34, 35, 39, 55)
