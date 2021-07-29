@@ -51,9 +51,73 @@ and (
     -- Dental Medicine
     (urc.RESPONSIBILITY_CENTER_CD = 31 and udj.JOB_TYPE in ('Academic', 'Faculty', 'Post Doctoral'))
     or
-    -- Health Sciences
-    (urc.RESPONSIBILITY_CENTER_CD in (30, 31, 32, 33, 34, 35, 39, 55)
+    -- Pharmacy
+    /* Excluded (13) (
+        Post Doctoral (Job Type), 
+        Academic (Job Type), 
+        Faculty (Job Type) + Lecturer (Job Family), 
+        Faculty (Job Type) + Scholar (Job Family), 
+        Faculty (Job Type) + Professor (Job Family) + Adjunct Assistant (Job Class), 
+        Faculty (Job Type) + Professor (Job Family) + Adjunct (Job Class), 
+        Faculty (Job Type) + Professor (Job Family) + Adjunct Associate (Job Class), 
+        Faculty (Job Type) + Professor (Job Family) + Research Assistant (Job Class), 
+        Faculty (Job Type) + Professor (Job Family) + Clinical Assistant (Job Class), 
+        Faculty (Job Type) + Professor (Job Family) + Clinical Associate (Job Class), 
+        Faculty (Job Type) + Professor (Job Family) + Distinguished Service (Job Class), 
+        Faculty (Job Type) + Professor (Job Family) + Research Associate (Job Class), 
+        Faculty (Job Type) + Instructor (Job Family)), 
+        ASSIGNMENT_STATUS (is not Terminated before July 2016), 
+        EMPLOYEE_FULL_PART_TIME_DESCR (is Fulltime-Regular, Fulltime-Temporary, or Parttime-Regular), 
+        EMERITUS_STATUS (is NO or YES), 
+        DEPARTMENT_DESCR (is Pharmacy), 
+        RESPONSIBILITY_CENTER_DESCR (is Dental Medicine, GSPH, Medicine, Nursing, Pharmacy, SHRS, SVC Health Sciences, or UPMC Hillman Cancer Center)
+    */
+    (urc.RESPONSIBILITY_CENTER_CD = 33
     and udj.JOB_TYPE = 'Faculty'
-    and uas.ASSIGNMENT_STATUS_KEY = 28 
-    and udd.DEPARTMENT_KEY != 36600)
+    and udj.JOB_FAMILY not in ('Lecturer', 'Scholar', 'Instructor')
+    and not (udj.JOB_FAMILY = 'Professor' and udj.JOB_CLASS in (
+        'Adjunct Assistant', 'Adjunct', 'Adjunct Associate', 'Research Assistant', 'Clinical Assistant',
+        'Clinical Associate', 'Distinguished Service', 'Research Associate'))
+    and (uas.ASSIGNMENT_STATUS_KEY not in (17, 18) or
+        (uas.ASSIGNMENT_STATUS_KEY in (17, 18) and ude.last_day_worked_dt >= '01-JUL-16'))
+    and efpt.EMPLOYEE_FULL_PART_TIME_DESCR in ('Fulltime-Regular', 'Fulltime-Temporary', 'Parttime-Regular')
+    )
+    or
+    -- SHRS
+    /*Excluded (13) 
+    Faculty (JOB_TYPE) + Lecturer (JOB_FAMILY), 
+    Faculty (JOB_TYPE) + Instructor (JOB_FAMILY) + Adjunct Assistant (JOB_CLASS), 
+    Faculty (JOB_TYPE) + Instructor (JOB_FAMILY) + Adjunct Clinical (JOB_CLASS),
+    Faculty (JOB_TYPE) + Instructor (JOB_FAMILY), 
+    Faculty (JOB_TYPE) + Professor (JOB_FAMILY) + Adjunct Assistant (JOB_CLASS), 
+    Faculty (JOB_TYPE) + Professor (JOB_FAMILY) + Adjunct (JOB_CLASS), 
+    Faculty (JOB_TYPE) + Professor (JOB_FAMILY) + Research Assistant (JOB_CLASS), 
+    Faculty (JOB_TYPE) + Professor (JOB_FAMILY) + Adjunct Clinical Assistant (JOB_CLASS), 
+    Faculty (JOB_TYPE) + Professor (JOB_FAMILY) + Adjunct Research Assistant (JOB_CLASS), 
+    Faculty (JOB_TYPE) + Professor (JOB_FAMILY) + Adjunct Associate (JOB_CLASS), 
+    Faculty (JOB_TYPE) + Professor (JOB_FAMILY) + Clinical Assistant (JOB_CLASS), 
+    Faculty (JOB_TYPE) + Professor (JOB_FAMILY) + Distinguished (JOB_CLASS), 
+    Faculty (JOB_TYPE) + Professor (JOB_FAMILY) + Visiting (JOB_CLASS)
+    ASSIGNMENT_STATUS is Active, Terminated between July 2016 and June 2019, Terminated between July 2019 and June 2020, or Terminated since July 2020
+    EMPLOYEE_FULL_PART_TIME_DESCR is Parttime-Temporary, Parttime-Regular, or Fulltime-Regular
+    DEPARTMENT_DESCR is SHRS
+    RESPONSIBILITY_CENTER_DESCR is Dental Medicine, GSPH, Medicine, Nursing, Pharmacy, SHRS, SVC Health Sciences, or UPMC Hillman Cancer Center"
+
+    */
+    (urc.RESPONSIBILITY_CENTER_CD = 39
+    and udj.JOB_TYPE in ('Academic', 'Faculty', 'Post Doctoral')
+    and not (udj.JOB_TYPE = 'Faculty' and udj.JOB_FAMILY in ('Lecturer', 'Instructor'))
+    and not (udj.JOB_TYPE = 'Faculty' and udj.JOB_FAMILY = 'Professor' and udj.JOB_CLASS in (
+        'Adjunct Assistant', 'Adjunct', 'Research Assistant', 'Adjunct Clinical Assistant', 'Adjunct Research Assistant',
+        'Adjunct Associate', 'Clinical Assistant', 'Distinguished', 'Visiting'))
+    and (uas.ASSIGNMENT_STATUS_KEY not in (17, 18) or
+        (uas.ASSIGNMENT_STATUS_KEY in (17, 18) and ude.last_day_worked_dt >= '01-JUL-16'))
+    and efpt.EMPLOYEE_FULL_PART_TIME_DESCR in ('Parttime-Temporary', 'Parttime-Regular', 'Fulltime-Regular')
+    )
+    -- or
+    -- -- Health Sciences
+    -- (urc.RESPONSIBILITY_CENTER_CD in (30, 31, 32, 33, 34, 35, 39, 55)
+    -- and udj.JOB_TYPE = 'Faculty'
+    -- and uas.ASSIGNMENT_STATUS_KEY = 28 
+    -- and udd.DEPARTMENT_KEY != 36600)
 )
