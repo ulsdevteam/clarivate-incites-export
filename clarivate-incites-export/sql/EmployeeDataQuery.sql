@@ -114,6 +114,13 @@ and (
         (uas.ASSIGNMENT_STATUS_KEY in (17, 18) and ude.last_day_worked_dt >= '01-JUL-16'))
     and efpt.EMPLOYEE_FULL_PART_TIME_DESCR in ('Parttime-Temporary', 'Parttime-Regular', 'Fulltime-Regular')
     )
+    or
+    -- Katz
+    (urc.RESPONSIBILITY_CENTER_CD = 21
+    and udj.JOB_TYPE in ('Academic', 'Faculty', 'Post Doctoral')
+    and uas.ASSIGNMENT_STATUS_KEY not in (4, 17, 18, 20, 35)
+    and efpt.EMPLOYEE_FULL_PART_TIME_DESCR in ('Fulltime-Regular', 'Fulltime-Temporary')
+    )
     -- or
     -- -- Health Sciences
     -- (urc.RESPONSIBILITY_CENTER_CD in (30, 31, 32, 33, 34, 35, 39, 55)
