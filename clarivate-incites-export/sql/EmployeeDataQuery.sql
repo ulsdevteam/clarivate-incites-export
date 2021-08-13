@@ -121,10 +121,16 @@ and (
     and uas.ASSIGNMENT_STATUS_KEY not in (4, 17, 18, 20, 35)
     and efpt.EMPLOYEE_FULL_PART_TIME_DESCR in ('Fulltime-Regular', 'Fulltime-Temporary')
     )
-    -- or
-    -- -- Health Sciences
-    -- (urc.RESPONSIBILITY_CENTER_CD in (30, 31, 32, 33, 34, 35, 39, 55)
-    -- and udj.JOB_TYPE = 'Faculty'
-    -- and uas.ASSIGNMENT_STATUS_KEY = 28 
-    -- and udd.DEPARTMENT_KEY != 36600)
+    or
+    -- Medicine
+    (urc.RESPONSIBILITY_CENTER_CD = 35
+    and udj.JOB_TYPE in ('Faculty, Post Doctoral')
+    and not (udj.JOB_TYPE = 'Faculty' and udj.JOB_FAMILY in ('Lecturer', 'Scholar', 'Instructor'))
+    and not (udj.JOB_TYPE = 'Faculty' and udj.JOB_FAMILY = 'Professor' and udj.JOB_CLASS in 
+        ('Adjunct Assistant', 'Adjunct', 'Adjunct Associate', 'Research Assistant', 
+         'Clinical Assistant', 'Clinical Associate', 'Distinguished Service', 'Research Associate'))
+    and efpt.EMPLOYEE_FULL_PART_TIME_DESCR in ('Fulltime-Regular', 'Fulltime-Temporary')
+    and (uas.ASSIGNMENT_STATUS_KEY not in (4, 17, 18, 20, 35) or 
+        (uas.ASSIGNMENT_STATUS_KEY in (17, 18) and ude.last_day_worked_dt >= '01-JUL-16'))
+    )
 )
