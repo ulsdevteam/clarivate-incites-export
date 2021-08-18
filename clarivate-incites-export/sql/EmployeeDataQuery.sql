@@ -124,7 +124,7 @@ and (
     or
     -- Medicine
     (urc.RESPONSIBILITY_CENTER_CD = 35
-    and udj.JOB_TYPE in ('Faculty, Post Doctoral')
+    and udj.JOB_TYPE in ('Faculty', 'Post Doctoral')
     and not (udj.JOB_TYPE = 'Faculty' and udj.JOB_FAMILY in ('Lecturer', 'Scholar', 'Instructor'))
     and not (udj.JOB_TYPE = 'Faculty' and udj.JOB_FAMILY = 'Professor' and udj.JOB_CLASS in 
         ('Adjunct Assistant', 'Adjunct', 'Adjunct Associate', 'Research Assistant', 
