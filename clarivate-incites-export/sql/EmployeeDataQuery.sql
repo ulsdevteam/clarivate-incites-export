@@ -133,4 +133,11 @@ and (
     and (uas.ASSIGNMENT_STATUS_KEY not in (4, 17, 18, 20, 35) or 
         (uas.ASSIGNMENT_STATUS_KEY in (17, 18) and ude.last_day_worked_dt >= '01-JUL-16'))
     )
+    or
+    -- SCI
+    (urc.RESPONSIBILITY_CENTER_CD = 94
+    and udj.JOB_TYPE = 'Faculty'
+    and efpt.EMPLOYEE_FULL_PART_TIME_DESCR = 'Fulltime-Regular'
+    and uas.ASSIGNMENT_STATUS_KEY not in (4, 17, 18, 20, 35)
+    )
 )
