@@ -140,4 +140,13 @@ and (
     and efpt.EMPLOYEE_FULL_PART_TIME_DESCR = 'Fulltime-Regular'
     and uas.ASSIGNMENT_STATUS_KEY not in (4, 17, 18, 20, 35)
     )
+    or
+    -- Social Work
+    (urc.RESPONSIBILITY_CENTER_CD = 26
+    and udj.JOB_TYPE in ('Acedemic', 'Faculty', 'Post Doctoral')
+    and uas.ASSIGNMENT_STATUS_KEY not in (4, 17, 18, 20, 35)
+    and (ude.FACULTY_EMERITUS_FLG is null or ude.FACULTY_EMERITUS_FLG = 'NO')
+    and efpt.EMPLOYEE_FULL_PART_TIME_DESCR = 'Fulltime-Regular'
+    and ude.FACULTY_TENURE_STATUS_DESCR in ('Tenure Stream', 'Tenured')
+    )
 )
