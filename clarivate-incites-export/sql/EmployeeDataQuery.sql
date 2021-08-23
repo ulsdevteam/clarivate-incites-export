@@ -250,4 +250,26 @@ and (
     and EMPLOYEE_FULL_PART_TIME_DESCR = 'Fulltime-Regular'
     and FACULTY_TENURE_STATUS_DESCR in ('Tenure Stream', 'Tenured')
     )
+    or
+    /* Not yet responded:
+    Chancellor
+    Kenneth P. Dietrich School of Arts & Sciences
+    Education
+    Law
+    GSPIA
+    SVC Health Sciences
+    Nursing
+    GSPH
+    UCIS
+    LRDC
+    UCSUR
+    SVC Research
+    SVC and Provost
+    UPMC Hillman Cancer Center
+    */
+    (RESPONSIBILITY_CENTER_CD in ('01', '03', '06', '10', '22', '24', '25', '30', '32', '34', '51', '55', '78', '81')
+    and JOB_TYPE = 'Faculty'
+    and ASSIGNMENT_STATUS_KEY not in (4, 17, 18, 20, 35)
+    and EMPLOYEE_FULL_PART_TIME_DESCR = 'Fulltime-Regular'
+    )
 )
