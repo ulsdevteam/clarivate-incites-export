@@ -42,23 +42,7 @@ namespace clarivate_incites_export
         static void RunExport(Options options)
         {
             using var udDataConnection = Connect("UD_DATA_CONNECTION");
-            var employeeData = udDataConnection.Query<(
-                string EMPLID,
-                string EMPLOYEE_NBR,
-                string USERNAME,
-                string LAST_NAME,
-                string FIRST_NAME,
-                string EMAIL_ADDRESS,
-                string DEPARTMENT_CD,
-                string DEPARTMENT_DESCR,
-                string RESPONSIBILITY_CENTER_CD,
-                string RESPONSIBILITY_CENTER_DESCR,
-                string FACULTY_TENURE_STATUS_DESCR,
-                string JOB_KEY,
-                string JOB_TYPE,
-                string JOB_FAMILY,
-                string JOB_CLASS
-                )>(GetSql("EmployeeDataQuery.sql")).ToList();
+            var employeeData = udDataConnection.Query<EmployeeData>(GetSql("EmployeeDataQuery.sql")).ToList();
 
             var employees = employeeData.Select(e => new Person
             {
@@ -112,6 +96,16 @@ namespace clarivate_incites_export
                 };
             }));
 
+            var maxJobKeyLen = employeeData.Select(e => e.JOB_KEY.Length).Max();
+
+            var builtHierarchy = new HierarchyBuilder()
+                .TopLevel("1" + new string('0', maxJobKeyLen + 6), "Selections from University of Pittsburgh")
+                .Then(e => e.RESPONSIBILITY_CENTER_CD, (e, _) => e.RESPONSIBILITY_CENTER_CD + new string('0', maxJobKeyLen + 4), (e, _) => "Selections from " + e.RESPONSIBILITY_CENTER_DESCR)
+                .Then(e => e.DEPARTMENT_CD, (e, _) => e.DEPARTMENT_CD + new string('0', maxJobKeyLen + 1), (e, _) => e.DEPARTMENT_DESCR)
+                .Then(e => e.JOB_KEY, (e, _) => e.DEPARTMENT_CD + e.JOB_KEY.PadLeft(maxJobKeyLen, '0') + "0", (e, parent) => parent.OrganizationName + " - " + e.JOB_FAMILY + " - " + e.JOB_CLASS)
+                .Then(e => TenureCode(e.FACULTY_TENURE_STATUS_DESCR), (e, _) => e.DEPARTMENT_CD + e.JOB_KEY.PadLeft(maxJobKeyLen, '0') + TenureCode(e.FACULTY_TENURE_STATUS_DESCR), (e, parent) => parent.OrganizationName + " - " + TenureDesc(e.FACULTY_TENURE_STATUS_DESCR))
+                .Build(employeeData);
+
             var employeeLookupByEmplId = employees.Where(e => e.EmplId is not null).ToLookup(e => e.EmplId);
             var employeeLookupByUsername = employees.Where(e => e.Username is not null).ToLookup(e => e.Username);
 
@@ -152,10 +146,19 @@ namespace clarivate_incites_export
             {
                 var record = new PersonRecord(e);
                 employeeRecords.Add(record);
-                record = record.WithOrganization(e.JobKey, e.JobName);
-                employeeRecords.Add(record);
             }
 
+            var dupes = builtHierarchy.GroupBy(o => long.Parse(o.OrganizationID.TrimStart('0'))).Where(g => g.Count() > 1);
+            foreach (var dupe in dupes)
+            {
+                Console.WriteLine($"Duplicate organization id: {dupe.Key}");
+                foreach (var org in dupe)
+                {
+                    Console.WriteLine(org.OrganizationName);
+                }
+            }
+
+            WriteToCsv("builtHierarchy.csv", builtHierarchy);
             WriteToCsv(options.OrgHierarchyCsvOutputPath, orgHierarchy);
             WriteToCsv(options.ResearchersCsvOutputPath, employeeRecords);
         }

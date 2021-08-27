@@ -2,7 +2,7 @@
 
 namespace clarivate_incites_export
 {
-    class OrgHierarchyRecord
+    public class OrgHierarchyRecord
     {
         [Index(0)]
         public string OrganizationID { get; set; }
