@@ -52,5 +52,12 @@ namespace clarivate_incites_export
                 ? string.Join("",person.EmailAddresses.Select(email => $"({email})"))
                 : person.EmailAddresses.SingleOrDefault() ?? "no_email@pitt.edu";
         }
+
+        public PersonRecord WithOrganization(string organizationId, string organizationName) {
+            var newPerson = (PersonRecord) MemberwiseClone();
+            newPerson.OrganizationID = organizationId;
+            newPerson.OrganizationName = organizationName;
+            return newPerson;
+        }
     }
 }

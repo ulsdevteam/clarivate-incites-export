@@ -53,7 +53,11 @@ namespace clarivate_incites_export
                 string DEPARTMENT_DESCR,
                 string RESPONSIBILITY_CENTER_CD,
                 string RESPONSIBILITY_CENTER_DESCR,
-                string FACULTY_TENURE_STATUS_DESCR
+                string FACULTY_TENURE_STATUS_DESCR,
+                string JOB_KEY,
+                string JOB_TYPE,
+                string JOB_FAMILY,
+                string JOB_CLASS
                 )>(GetSql("EmployeeDataQuery.sql")).ToList();
 
             var employees = employeeData.Select(e => new Person
@@ -68,7 +72,9 @@ namespace clarivate_incites_export
                 TenureStatus = e.FACULTY_TENURE_STATUS_DESCR,
                 EmailAddresses = e.EMAIL_ADDRESS is not null
                     ? new HashSet<string>(StringComparer.OrdinalIgnoreCase) { e.EMAIL_ADDRESS }
-                    : new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    : new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                JobKey = e.JOB_KEY,
+                JobName = $"{e.JOB_TYPE} - {e.JOB_FAMILY} - {e.JOB_CLASS}"
             }).ToList();
 
             var topLevelOrg = new OrgHierarchyRecord { OrganizationID = "1000000", OrganizationName = "University of Pittsburgh" };
@@ -97,6 +103,14 @@ namespace clarivate_incites_export
                         ParentOrgaID = topLevelOrg.OrganizationID
                     });
                 }));
+            orgHierarchy.AddRange(employeeData.GroupBy(e => e.JOB_KEY).Select(grp => {
+                var e = grp.First();
+                return new OrgHierarchyRecord {
+                    OrganizationID = grp.Key,
+                    OrganizationName = $"{e.JOB_TYPE} - {e.JOB_FAMILY} - {e.JOB_CLASS}",
+                    ParentOrgaID = topLevelOrg.OrganizationID
+                };
+            }));
 
             var employeeLookupByEmplId = employees.Where(e => e.EmplId is not null).ToLookup(e => e.EmplId);
             var employeeLookupByUsername = employees.Where(e => e.Username is not null).ToLookup(e => e.Username);
@@ -133,8 +147,17 @@ namespace clarivate_incites_export
                 }
             }
 
+            var employeeRecords = new List<PersonRecord>();
+            foreach (var e in employees)
+            {
+                var record = new PersonRecord(e);
+                employeeRecords.Add(record);
+                record = record.WithOrganization(e.JobKey, e.JobName);
+                employeeRecords.Add(record);
+            }
+
             WriteToCsv(options.OrgHierarchyCsvOutputPath, orgHierarchy);
-            WriteToCsv(options.ResearchersCsvOutputPath, employees.Select(e => new PersonRecord(e)));
+            WriteToCsv(options.ResearchersCsvOutputPath, employeeRecords);
         }
 
 		static OracleConnection Connect(string connectionStringName) {
