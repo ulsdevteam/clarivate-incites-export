@@ -13,7 +13,8 @@ FACULTY_TENURE_STATUS_DESCR,
 JOB_KEY,
 JOB_TYPE,
 JOB_FAMILY,
-JOB_CLASS
+JOB_CLASS,
+BUILDING_NAME
 
 from
   (select 
@@ -29,6 +30,7 @@ from
 	job_type, 
 	job_family, 
 	job_class, 
+    building_name,
 	EMPLOYEE_FULL_PART_TIME_DESCR, 
 	assignment_status_descr,
     assignment_status_key,
@@ -55,6 +57,7 @@ from
 		udj.job_type, 
 		udj.job_family, 
 		udj.job_class, 
+        ude.building_name,
 		efpt.EMPLOYEE_FULL_PART_TIME_DESCR, 
 		uas.assignment_status_descr,
         uas.assignment_status_key,
@@ -94,6 +97,7 @@ from
 		udj.job_type, 
 		udj.job_family, 
 		udj.job_class, 
+        ude.building_name,
 		efpt.EMPLOYEE_FULL_PART_TIME_DESCR, 
 		uas.assignment_status_descr,
         uas.assignment_status_key,

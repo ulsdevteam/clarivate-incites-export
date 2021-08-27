@@ -45,13 +45,23 @@ namespace clarivate_incites_export
             var employeeData = udDataConnection.Query<EmployeeData>(GetSql("EmployeeDataQuery.sql")).ToList();
             
             var maxJobKeyLen = employeeData.Select(e => e.JOB_KEY.Length).Max();
-
+            var buildingDifferentiator = new Dictionary<string, int>();
+            string GetBuildingOrgId(string parentOrgId) {
+                if (buildingDifferentiator.TryGetValue(parentOrgId, out var num)) {
+                    buildingDifferentiator[parentOrgId] = num + 1;
+                    return parentOrgId.Substring(0, parentOrgId.Length - 1) + num;
+                } else {
+                    buildingDifferentiator[parentOrgId] = 2;
+                    return parentOrgId.Substring(0, parentOrgId.Length - 1) + "1";
+                }
+            }
             var orgHierarchy = new HierarchyBuilder()
-                .TopLevel("1" + new string('0', maxJobKeyLen + 6), "Selections from University of Pittsburgh")
-                .Then(e => e.RESPONSIBILITY_CENTER_CD, (e, _) => e.RESPONSIBILITY_CENTER_CD + new string('0', maxJobKeyLen + 4), (e, _) => "Selections from " + e.RESPONSIBILITY_CENTER_DESCR)
-                .Then(e => e.DEPARTMENT_CD, (e, _) => e.DEPARTMENT_CD + new string('0', maxJobKeyLen + 1), (e, _) => e.DEPARTMENT_DESCR)
-                .Then(e => e.JOB_KEY, (e, _) => e.DEPARTMENT_CD + e.JOB_KEY.PadLeft(maxJobKeyLen, '0') + "0", (e, parent) => parent.OrganizationName + " - " + e.JOB_FAMILY + " - " + e.JOB_CLASS)
-                .Then(e => TenureCode(e.FACULTY_TENURE_STATUS_DESCR), (e, _) => e.DEPARTMENT_CD + e.JOB_KEY.PadLeft(maxJobKeyLen, '0') + TenureCode(e.FACULTY_TENURE_STATUS_DESCR), (e, parent) => parent.OrganizationName + " - " + TenureDesc(e.FACULTY_TENURE_STATUS_DESCR))
+                .TopLevel("1" + new string('0', maxJobKeyLen + 7), "Selections from University of Pittsburgh")
+                .Then(e => e.RESPONSIBILITY_CENTER_CD, (e, _) => e.RESPONSIBILITY_CENTER_CD + new string('0', maxJobKeyLen + 5), (e, _) => "Selections from " + e.RESPONSIBILITY_CENTER_DESCR)
+                .Then(e => e.DEPARTMENT_CD, (e, _) => e.DEPARTMENT_CD + new string('0', maxJobKeyLen + 2), (e, _) => e.DEPARTMENT_DESCR)
+                .Then(e => e.JOB_KEY, (e, _) => e.DEPARTMENT_CD + e.JOB_KEY.PadLeft(maxJobKeyLen, '0') + "00", (e, parent) => parent.OrganizationName + " - " + e.JOB_FAMILY + " - " + e.JOB_CLASS)
+                .Then(e => TenureCode(e.FACULTY_TENURE_STATUS_DESCR), (e, _) => e.DEPARTMENT_CD + e.JOB_KEY.PadLeft(maxJobKeyLen, '0') + TenureCode(e.FACULTY_TENURE_STATUS_DESCR) + "0", (e, parent) => parent.OrganizationName + " - " + TenureDesc(e.FACULTY_TENURE_STATUS_DESCR))
+                .Then(e => e.BUILDING_NAME, (e, parent) => GetBuildingOrgId(parent.OrganizationID), (e, parent) => parent.OrganizationName + " - " + e.BUILDING_NAME)
                 .Build(employeeData);
 
             var employees = employeeData.Select(e => new Person
