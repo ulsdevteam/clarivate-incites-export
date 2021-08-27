@@ -29,12 +29,11 @@ namespace clarivate_incites_export
         public List<OrgHierarchyRecord> Build(IEnumerable<EmployeeData> allEmployees)
         {
             var orgs = new List<OrgHierarchyRecord> { TopLevelRecord };
-            RunLevel(0, TopLevelRecord, allEmployees);
+            if (Levels.Any()) RunLevel(0, TopLevelRecord, allEmployees);
             return orgs;
 
             void RunLevel(int level, OrgHierarchyRecord parentOrg, IEnumerable<EmployeeData> employees)
             {
-                if (Levels.Count <= level) return;
                 var (groupFn, idFn, nameFn) = Levels[level];
                 foreach (var group in employees.GroupBy(groupFn))
                 {
@@ -45,7 +44,15 @@ namespace clarivate_incites_export
                         ParentOrgaID = parentOrg.OrganizationID
                     };
                     orgs.Add(org);
-                    RunLevel(level + 1, org, group);
+                    if (level + 1 >= Levels.Count) {
+                        foreach (var employee in group)
+                        {
+                            employee.LeafOrganizationID = org.OrganizationID;
+                            employee.LeafOrganizationName = org.OrganizationName;
+                        }
+                    } else {
+                        RunLevel(level + 1, org, group);
+                    }
                 }
             }
         }

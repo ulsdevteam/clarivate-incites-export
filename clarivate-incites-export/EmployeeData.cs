@@ -17,5 +17,8 @@ namespace clarivate_incites_export
         public string JOB_TYPE;
         public string JOB_FAMILY;
         public string JOB_CLASS;
+
+        public string LeafOrganizationID { get; set; }
+        public string LeafOrganizationName { get; set; }
     }
 }

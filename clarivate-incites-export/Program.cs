@@ -43,6 +43,16 @@ namespace clarivate_incites_export
         {
             using var udDataConnection = Connect("UD_DATA_CONNECTION");
             var employeeData = udDataConnection.Query<EmployeeData>(GetSql("EmployeeDataQuery.sql")).ToList();
+            
+            var maxJobKeyLen = employeeData.Select(e => e.JOB_KEY.Length).Max();
+
+            var orgHierarchy = new HierarchyBuilder()
+                .TopLevel("1" + new string('0', maxJobKeyLen + 6), "Selections from University of Pittsburgh")
+                .Then(e => e.RESPONSIBILITY_CENTER_CD, (e, _) => e.RESPONSIBILITY_CENTER_CD + new string('0', maxJobKeyLen + 4), (e, _) => "Selections from " + e.RESPONSIBILITY_CENTER_DESCR)
+                .Then(e => e.DEPARTMENT_CD, (e, _) => e.DEPARTMENT_CD + new string('0', maxJobKeyLen + 1), (e, _) => e.DEPARTMENT_DESCR)
+                .Then(e => e.JOB_KEY, (e, _) => e.DEPARTMENT_CD + e.JOB_KEY.PadLeft(maxJobKeyLen, '0') + "0", (e, parent) => parent.OrganizationName + " - " + e.JOB_FAMILY + " - " + e.JOB_CLASS)
+                .Then(e => TenureCode(e.FACULTY_TENURE_STATUS_DESCR), (e, _) => e.DEPARTMENT_CD + e.JOB_KEY.PadLeft(maxJobKeyLen, '0') + TenureCode(e.FACULTY_TENURE_STATUS_DESCR), (e, parent) => parent.OrganizationName + " - " + TenureDesc(e.FACULTY_TENURE_STATUS_DESCR))
+                .Build(employeeData);
 
             var employees = employeeData.Select(e => new Person
             {
@@ -51,8 +61,8 @@ namespace clarivate_incites_export
                 Username = e.USERNAME,
                 FirstName = e.FIRST_NAME,
                 LastName = e.LAST_NAME,
-                OrganizationId = e.DEPARTMENT_CD + TenureCode(e.FACULTY_TENURE_STATUS_DESCR),
-                OrganizationName = e.DEPARTMENT_DESCR + " - " + TenureDesc(e.FACULTY_TENURE_STATUS_DESCR),
+                OrganizationId = e.LeafOrganizationID,
+                OrganizationName = e.LeafOrganizationName,
                 TenureStatus = e.FACULTY_TENURE_STATUS_DESCR,
                 EmailAddresses = e.EMAIL_ADDRESS is not null
                     ? new HashSet<string>(StringComparer.OrdinalIgnoreCase) { e.EMAIL_ADDRESS }
@@ -60,51 +70,6 @@ namespace clarivate_incites_export
                 JobKey = e.JOB_KEY,
                 JobName = $"{e.JOB_TYPE} - {e.JOB_FAMILY} - {e.JOB_CLASS}"
             }).ToList();
-
-            var topLevelOrg = new OrgHierarchyRecord { OrganizationID = "1000000", OrganizationName = "University of Pittsburgh" };
-            var orgHierarchy = new List<OrgHierarchyRecord>() { topLevelOrg };
-            orgHierarchy.AddRange(employeeData
-                .GroupBy(e => e.RESPONSIBILITY_CENTER_CD)
-                .SelectMany(rcGroup =>
-                {
-                    var deptGroups = rcGroup.GroupBy(e => e.DEPARTMENT_CD).ToList();
-                    var depts = deptGroups
-                        .SelectMany(depGroup => depGroup.GroupBy(d => (TenureCode(d.FACULTY_TENURE_STATUS_DESCR), TenureDesc(d.FACULTY_TENURE_STATUS_DESCR))).Select(t => new OrgHierarchyRecord
-                        {
-                            OrganizationID = depGroup.Key + t.Key.Item1,
-                            OrganizationName = depGroup.First().DEPARTMENT_DESCR + " - " + t.Key.Item2,
-                            ParentOrgaID = depGroup.Key + "0"
-                        }).Prepend(new OrgHierarchyRecord
-                        {
-                            OrganizationID = depGroup.Key + "0",
-                            OrganizationName = depGroup.First().DEPARTMENT_DESCR,
-                            ParentOrgaID = rcGroup.Key != "00" ? rcGroup.Key + "0000" : topLevelOrg.OrganizationID
-                        }));
-                    return rcGroup.Key == "00" ? depts : depts.Prepend(new OrgHierarchyRecord
-                    {
-                        OrganizationID = rcGroup.Key + "0000",
-                        OrganizationName = rcGroup.First().RESPONSIBILITY_CENTER_DESCR,
-                        ParentOrgaID = topLevelOrg.OrganizationID
-                    });
-                }));
-            orgHierarchy.AddRange(employeeData.GroupBy(e => e.JOB_KEY).Select(grp => {
-                var e = grp.First();
-                return new OrgHierarchyRecord {
-                    OrganizationID = grp.Key,
-                    OrganizationName = $"{e.JOB_TYPE} - {e.JOB_FAMILY} - {e.JOB_CLASS}",
-                    ParentOrgaID = topLevelOrg.OrganizationID
-                };
-            }));
-
-            var maxJobKeyLen = employeeData.Select(e => e.JOB_KEY.Length).Max();
-
-            var builtHierarchy = new HierarchyBuilder()
-                .TopLevel("1" + new string('0', maxJobKeyLen + 6), "Selections from University of Pittsburgh")
-                .Then(e => e.RESPONSIBILITY_CENTER_CD, (e, _) => e.RESPONSIBILITY_CENTER_CD + new string('0', maxJobKeyLen + 4), (e, _) => "Selections from " + e.RESPONSIBILITY_CENTER_DESCR)
-                .Then(e => e.DEPARTMENT_CD, (e, _) => e.DEPARTMENT_CD + new string('0', maxJobKeyLen + 1), (e, _) => e.DEPARTMENT_DESCR)
-                .Then(e => e.JOB_KEY, (e, _) => e.DEPARTMENT_CD + e.JOB_KEY.PadLeft(maxJobKeyLen, '0') + "0", (e, parent) => parent.OrganizationName + " - " + e.JOB_FAMILY + " - " + e.JOB_CLASS)
-                .Then(e => TenureCode(e.FACULTY_TENURE_STATUS_DESCR), (e, _) => e.DEPARTMENT_CD + e.JOB_KEY.PadLeft(maxJobKeyLen, '0') + TenureCode(e.FACULTY_TENURE_STATUS_DESCR), (e, parent) => parent.OrganizationName + " - " + TenureDesc(e.FACULTY_TENURE_STATUS_DESCR))
-                .Build(employeeData);
 
             var employeeLookupByEmplId = employees.Where(e => e.EmplId is not null).ToLookup(e => e.EmplId);
             var employeeLookupByUsername = employees.Where(e => e.Username is not null).ToLookup(e => e.Username);
@@ -148,7 +113,7 @@ namespace clarivate_incites_export
                 employeeRecords.Add(record);
             }
 
-            var dupes = builtHierarchy.GroupBy(o => long.Parse(o.OrganizationID.TrimStart('0'))).Where(g => g.Count() > 1);
+            var dupes = orgHierarchy.GroupBy(o => long.Parse(o.OrganizationID.TrimStart('0'))).Where(g => g.Count() > 1);
             foreach (var dupe in dupes)
             {
                 Console.WriteLine($"Duplicate organization id: {dupe.Key}");
@@ -158,7 +123,6 @@ namespace clarivate_incites_export
                 }
             }
 
-            WriteToCsv("builtHierarchy.csv", builtHierarchy);
             WriteToCsv(options.OrgHierarchyCsvOutputPath, orgHierarchy);
             WriteToCsv(options.ResearchersCsvOutputPath, employeeRecords);
         }
