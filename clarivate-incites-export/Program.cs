@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using CommandLine;
 using CsvHelper;
 using Dapper;
@@ -33,7 +31,8 @@ namespace clarivate_incites_export
 				{
 					Console.Error.WriteLine(e);
 				}
-				catch (OracleException e) {
+				catch (OracleException e)
+                {
 					Console.Error.WriteLine("Oracle Error: " + e);
 				}
 			});
@@ -45,41 +44,42 @@ namespace clarivate_incites_export
             var employeeData = udDataConnection.Query<EmployeeData>(GetSql("EmployeeDataQuery.sql")).ToList();
             
             var maxJobKeyLen = employeeData.Select(e => e.JOB_KEY.Length).Max();
-            var buildingDifferentiator = new Dictionary<string, int>();
-            string GetBuildingOrgId(string parentOrgId) {
-                if (buildingDifferentiator.TryGetValue(parentOrgId, out var num)) {
-                    buildingDifferentiator[parentOrgId] = num + 1;
-                    return parentOrgId.Substring(0, parentOrgId.Length - 1) + num;
-                } else {
-                    buildingDifferentiator[parentOrgId] = 2;
-                    return parentOrgId.Substring(0, parentOrgId.Length - 1) + "1";
-                }
-            }
+            // var buildingDifferentiator = new Dictionary<string, int>();
+            // string GetBuildingOrgId(string parentOrgId) {
+            //     if (buildingDifferentiator.TryGetValue(parentOrgId, out var num)) {
+            //         buildingDifferentiator[parentOrgId] = num + 1;
+            //         return parentOrgId + num;
+            //     } else {
+            //         buildingDifferentiator[parentOrgId] = 2;
+            //         return parentOrgId + "1";
+            //     }
+            // }
+
             var orgHierarchy = new HierarchyBuilder()
-                .TopLevel("1" + new string('0', maxJobKeyLen + 7), "Selections from University of Pittsburgh")
-                .Then(e => e.RESPONSIBILITY_CENTER_CD, (e, _) => e.RESPONSIBILITY_CENTER_CD + new string('0', maxJobKeyLen + 5), (e, _) => "Selections from " + e.RESPONSIBILITY_CENTER_DESCR)
-                .Then(e => e.DEPARTMENT_CD, (e, _) => e.DEPARTMENT_CD + new string('0', maxJobKeyLen + 2), (e, _) => e.DEPARTMENT_DESCR)
-                .Then(e => e.JOB_KEY, (e, _) => e.DEPARTMENT_CD + e.JOB_KEY.PadLeft(maxJobKeyLen, '0') + "00", (e, parent) => parent.OrganizationName + " - " + e.JOB_FAMILY + " - " + e.JOB_CLASS)
-                .Then(e => TenureCode(e.FACULTY_TENURE_STATUS_DESCR), (e, _) => e.DEPARTMENT_CD + e.JOB_KEY.PadLeft(maxJobKeyLen, '0') + TenureCode(e.FACULTY_TENURE_STATUS_DESCR) + "0", (e, parent) => parent.OrganizationName + " - " + TenureDesc(e.FACULTY_TENURE_STATUS_DESCR))
-                .Then(e => e.BUILDING_NAME, (e, parent) => GetBuildingOrgId(parent.OrganizationID), (e, parent) => parent.OrganizationName + " - " + e.BUILDING_NAME)
+                .TopLevel("0", "Selections from University of Pittsburgh")
+                .Then(
+                    e => e.RESPONSIBILITY_CENTER_CD, 
+                    (e, _) => e.RESPONSIBILITY_CENTER_CD, 
+                    (e, _) => "Selections from " + e.RESPONSIBILITY_CENTER_DESCR)
+                .Then(
+                    e => e.DEPARTMENT_CD, 
+                    (e, _) => e.DEPARTMENT_CD, 
+                    (e, _) => e.DEPARTMENT_DESCR)
+                .Then(
+                    e => e.JOB_KEY, 
+                    (e, parent) => parent.OrganizationID + e.JOB_KEY.PadLeft(maxJobKeyLen, '0'), 
+                    (e, parent) => /*parent.OrganizationName + " - " +*/ e.JOB_FAMILY + " - " + e.JOB_CLASS)
+                .Then(
+                    e => TenureCode(e.FACULTY_TENURE_STATUS_DESCR), 
+                    (e, parent) => parent.OrganizationID + TenureCode(e.FACULTY_TENURE_STATUS_DESCR), 
+                    (e, parent) => /*parent.OrganizationName + " - " +*/ TenureDesc(e.FACULTY_TENURE_STATUS_DESCR))
+                // .Then(
+                //     e => e.BUILDING_NAME, 
+                //     (e, parent) => GetBuildingOrgId(parent.OrganizationID), 
+                //     (e, parent) => parent.OrganizationName + " - " + e.BUILDING_NAME)
                 .Build(employeeData);
 
-            var employees = employeeData.Select(e => new Person
-            {
-                EmplId = e.EMPLID,
-                EmployeeNbr = e.EMPLOYEE_NBR,
-                Username = e.USERNAME,
-                FirstName = e.FIRST_NAME,
-                LastName = e.LAST_NAME,
-                OrganizationId = e.LeafOrganizationID,
-                OrganizationName = e.LeafOrganizationName,
-                TenureStatus = e.FACULTY_TENURE_STATUS_DESCR,
-                EmailAddresses = e.EMAIL_ADDRESS is not null
-                    ? new HashSet<string>(StringComparer.OrdinalIgnoreCase) { e.EMAIL_ADDRESS }
-                    : new HashSet<string>(StringComparer.OrdinalIgnoreCase),
-                JobKey = e.JOB_KEY,
-                JobName = $"{e.JOB_TYPE} - {e.JOB_FAMILY} - {e.JOB_CLASS}"
-            }).ToList();
+            var employees = employeeData.Select(e => new Person(e)).ToList();
 
             var employeeLookupByEmplId = employees.Where(e => e.EmplId is not null).ToLookup(e => e.EmplId);
             var employeeLookupByUsername = employees.Where(e => e.Username is not null).ToLookup(e => e.Username);
@@ -123,7 +123,7 @@ namespace clarivate_incites_export
                 employeeRecords.Add(record);
             }
 
-            var dupes = orgHierarchy.GroupBy(o => long.Parse(o.OrganizationID.TrimStart('0'))).Where(g => g.Count() > 1);
+            var dupes = orgHierarchy.GroupBy(o => long.Parse(o.OrganizationID)).Where(g => g.Count() > 1);
             foreach (var dupe in dupes)
             {
                 Console.WriteLine($"Duplicate organization id: {dupe.Key}");
@@ -168,7 +168,7 @@ namespace clarivate_incites_export
 
         static string GetSql(string filename)
         {
-            using var stream = Assembly.GetExecutingAssembly()
+            using var stream = System.Reflection.Assembly.GetExecutingAssembly()
                                    .GetManifestResourceStream($"clarivate_incites_export.sql.{filename}") ??
                                throw new InvalidOperationException("Resource not found.");
             using var reader = new StreamReader(stream);
@@ -178,7 +178,7 @@ namespace clarivate_incites_export
         static void WriteToCsv<T>(string outputPath, IEnumerable<T> records)
         {
             using var writer = new StreamWriter(outputPath);
-            using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
+            using var csv = new CsvWriter(writer, System.Globalization.CultureInfo.InvariantCulture);
             csv.WriteHeader<T>();
             csv.NextRecord();
             csv.WriteRecords(records);
