@@ -68,11 +68,11 @@ namespace clarivate_incites_export
                 .Then(
                     e => e.JOB_KEY, 
                     (e, parent) => parent.OrganizationID + e.JOB_KEY.PadLeft(maxJobKeyLen, '0'), 
-                    (e, parent) => /*parent.OrganizationName + " - " +*/ e.JOB_FAMILY + " - " + e.JOB_CLASS)
+                    (e, parent) => parent.OrganizationName + " - " + e.JOB_FAMILY + " - " + e.JOB_CLASS)
                 .Then(
                     e => TenureCode(e.FACULTY_TENURE_STATUS_DESCR), 
                     (e, parent) => parent.OrganizationID + TenureCode(e.FACULTY_TENURE_STATUS_DESCR), 
-                    (e, parent) => /*parent.OrganizationName + " - " +*/ TenureDesc(e.FACULTY_TENURE_STATUS_DESCR))
+                    (e, parent) => parent.OrganizationName + " - " + TenureDesc(e.FACULTY_TENURE_STATUS_DESCR))
                 // .Then(
                 //     e => e.BUILDING_NAME, 
                 //     (e, parent) => GetBuildingOrgId(parent.OrganizationID), 
