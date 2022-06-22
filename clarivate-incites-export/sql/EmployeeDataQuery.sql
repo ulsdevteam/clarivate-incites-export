@@ -235,7 +235,7 @@ and (
     and not (JOB_TYPE = 'Faculty' and JOB_FAMILY = 'Professor' and JOB_CLASS in 
         ('Adjunct Assistant', 'Adjunct', 'Adjunct Associate', 'Research Assistant', 
          'Clinical Assistant', 'Clinical Associate', 'Distinguished Service', 'Research Associate'))
-    and EMPLOYEE_FULL_PART_TIME_DESCR in ('Fulltime-Regular', 'Fulltime-Temporary', 'Parttime-Temporary', 'Parttime-Regular')
+    and EMPLOYEE_FULL_PART_TIME_DESCR in ('Fulltime-Regular', 'Fulltime-Temporary')
     and (ASSIGNMENT_STATUS_KEY not in (4, 17, 18, 20, 35) or 
         (ASSIGNMENT_STATUS_KEY in (17, 18) and last_day_worked_dt >= '01-JUL-16'))
     )
@@ -261,7 +261,7 @@ and (
     and JOB_FAMILY not in (
         'Lecturer', 'Scholar', 'Adjunct Assistant', 'Adjunct', 'Adjunct Associate', 'Research Assistant',
         'Clinical Assistant', 'Clinical Associate', 'Distinguished Service', 'Research Associate', 'Instructor')
-    and EMPLOYEE_FULL_PART_TIME_DESCR = 'Fulltime-Regular'
+    and EMPLOYEE_FULL_PART_TIME_DESCR in ('Fulltime-Regular', 'Fulltime-Temporary', 'Parttime-Temporary', 'Parttime-Regular')
     and ASSIGNMENT_STATUS_KEY not in (4, 17, 18, 20, 35))
     or
     -- GSPH
