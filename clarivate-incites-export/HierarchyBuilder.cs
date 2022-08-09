@@ -6,7 +6,7 @@ namespace clarivate_incites_export
 {
     public class HierarchyBuilder 
     {
-        private record LevelFunctions(Func<EmployeeData, string> GroupFn, Func<EmployeeData, OrgHierarchyRecord, string> IdFn, Func<EmployeeData, OrgHierarchyRecord, string> NameFn);
+        private record LevelFunctions(Func<EmployeeData, bool> CondFn, Func<EmployeeData, string> GroupFn, Func<EmployeeData, OrgHierarchyRecord, string> IdFn, Func<EmployeeData, OrgHierarchyRecord, string> NameFn);
 
         private OrgHierarchyRecord TopLevelRecord { get; set; }
         private List<LevelFunctions> Levels { get; } = new List<LevelFunctions>();
@@ -22,7 +22,13 @@ namespace clarivate_incites_export
 
         public HierarchyBuilder Then(Func<EmployeeData, string> groupFn, Func<EmployeeData, OrgHierarchyRecord, string> idFn, Func<EmployeeData, OrgHierarchyRecord, string> nameFn)
         {
-            Levels.Add(new LevelFunctions(groupFn, idFn, nameFn));
+            Levels.Add(new LevelFunctions(_ => true, groupFn, idFn, nameFn));
+            return this;
+        }
+
+        public HierarchyBuilder ThenCond(Func<EmployeeData, bool> condFn, Func<EmployeeData, string> groupFn, Func<EmployeeData, OrgHierarchyRecord, string> idFn, Func<EmployeeData, OrgHierarchyRecord, string> nameFn)
+        {
+            Levels.Add(new LevelFunctions(condFn, groupFn, idFn, nameFn));
             return this;
         }
 
@@ -34,26 +40,32 @@ namespace clarivate_incites_export
 
             void RunLevel(int level, OrgHierarchyRecord parentOrg, IEnumerable<EmployeeData> employees)
             {
-                var (groupFn, idFn, nameFn) = Levels[level];
-                foreach (var group in employees.GroupBy(groupFn))
+                if (level >= Levels.Count) { return; }
+                var (condFn, groupFn, idFn, nameFn) = Levels[level];
+                var (appliesEmployees, skipEmployees) = employees.SplitBy(condFn);
+                foreach (var group in appliesEmployees.GroupBy(groupFn))
                 {
                     var representative = group.First();
-                    var org = new OrgHierarchyRecord {
+                    var org = new OrgHierarchyRecord
+                    {
                         OrganizationID = idFn(representative, parentOrg),
                         OrganizationName = nameFn(representative, parentOrg),
                         ParentOrgaID = parentOrg.OrganizationID
                     };
                     orgs.Add(org);
-                    if (level + 1 >= Levels.Count) {
-                        foreach (var employee in group)
-                        {
-                            employee.LeafOrganizationID = org.OrganizationID;
-                            employee.LeafOrganizationName = org.OrganizationName;
-                        }
-                    } else {
-                        RunLevel(level + 1, org, group);
+                    // An employee is on a leaf if this level applies to them and no subsequent levels do
+                    var (leaves, nonLeaves) =
+                        group.SplitBy(e => !Levels.Skip(level).Any(l => l.CondFn(e)));
+                    foreach (var employee in leaves)
+                    {
+                        employee.LeafOrganizationID = org.OrganizationID;
+                        employee.LeafOrganizationName = org.OrganizationName;
                     }
+
+                    RunLevel(level + 1, org, nonLeaves);
                 }
+
+                RunLevel(level + 1, parentOrg, skipEmployees);
             }
         }
     }

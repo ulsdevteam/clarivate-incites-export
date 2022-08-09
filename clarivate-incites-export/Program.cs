@@ -44,16 +44,16 @@ namespace clarivate_incites_export
             var employeeData = udDataConnection.Query<EmployeeData>(GetSql("EmployeeDataQuery.sql")).ToList();
             
             var maxJobKeyLen = employeeData.Select(e => e.JOB_KEY.Length).Max();
-            // var buildingDifferentiator = new Dictionary<string, int>();
-            // string GetBuildingOrgId(string parentOrgId) {
-            //     if (buildingDifferentiator.TryGetValue(parentOrgId, out var num)) {
-            //         buildingDifferentiator[parentOrgId] = num + 1;
-            //         return parentOrgId + num;
-            //     } else {
-            //         buildingDifferentiator[parentOrgId] = 2;
-            //         return parentOrgId + "1";
-            //     }
-            // }
+            var buildingDifferentiator = new Dictionary<string, int>();
+            string GetBuildingOrgId(string parentOrgId) {
+                if (buildingDifferentiator.TryGetValue(parentOrgId, out var num)) {
+                    buildingDifferentiator[parentOrgId] = num + 1;
+                    return parentOrgId + num;
+                } else {
+                    buildingDifferentiator[parentOrgId] = 2;
+                    return parentOrgId + "1";
+                }
+            }
 
             var orgHierarchy = new HierarchyBuilder()
                 .TopLevel("0", "Selections from University of Pittsburgh")
@@ -73,10 +73,11 @@ namespace clarivate_incites_export
                     e => TenureCode(e.FACULTY_TENURE_STATUS_DESCR), 
                     (e, parent) => parent.OrganizationID + TenureCode(e.FACULTY_TENURE_STATUS_DESCR), 
                     (e, parent) => parent.OrganizationName + " - " + TenureDesc(e.FACULTY_TENURE_STATUS_DESCR))
-                // .Then(
-                //     e => e.BUILDING_NAME, 
-                //     (e, parent) => GetBuildingOrgId(parent.OrganizationID), 
-                //     (e, parent) => parent.OrganizationName + " - " + e.BUILDING_NAME)
+                .ThenCond(
+                    e => e.DEPARTMENT_DESCR == "Pediatrics",
+                    e => e.BUILDING_NAME, 
+                    (e, parent) => GetBuildingOrgId(parent.OrganizationID), 
+                    (e, parent) => parent.OrganizationName + " - " + e.BUILDING_NAME)
                 .Build(employeeData);
 
             var employees = employeeData.Select(e => new Person(e)).ToList();
@@ -182,6 +183,14 @@ namespace clarivate_incites_export
             csv.WriteHeader<T>();
             csv.NextRecord();
             csv.WriteRecords(records);
+        }
+
+        public static (List<T>, List<T>) SplitBy<T>(this IEnumerable<T> source, Func<T, bool> predicate)
+        {
+            var trueList = new List<T>();
+            var falseList = new List<T>();
+            foreach (var item in source) { (predicate(item) ? trueList : falseList).Add(item); }
+            return (trueList, falseList);
         }
     }
 }
