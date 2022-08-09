@@ -4,6 +4,7 @@
         <OutputType>Exe</OutputType>
         <TargetFramework>net5.0</TargetFramework>
         <RootNamespace>clarivate_incites_export</RootNamespace>
+        <Company>University of Pittsburgh</Company>
     </PropertyGroup>
 
     <ItemGroup>
