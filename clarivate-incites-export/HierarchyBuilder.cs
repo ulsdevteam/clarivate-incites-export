@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace clarivate_incites_export
@@ -44,7 +45,12 @@ namespace clarivate_incites_export
 
             void RunLevel(int level, OrgHierarchyRecord parentOrg, IEnumerable<EmployeeData> employees)
             {
-                if (level >= Levels.Count) { return; }
+                if (level >= Levels.Count)
+                {
+                    // This would have caught the off-by one error I had before adding the `+1` down there
+                    Debug.Assert(!employees.Any(), "Some employees were not assigned to an organization.");
+                    return;
+                }
                 var (condFn, groupFn, idFn, nameFn) = Levels[level];
                 var (appliesEmployees, skipEmployees) = employees.SplitBy(condFn);
                 foreach (var group in appliesEmployees.GroupBy(groupFn))
