@@ -1,6 +1,6 @@
 namespace clarivate_incites_export
 {
-    public class EmployeeData
+    class EmployeeData
     {
         public string EMPLID;
         public string EMPLOYEE_NBR;
@@ -18,8 +18,6 @@ namespace clarivate_incites_export
         public string JOB_FAMILY;
         public string JOB_CLASS;
         public string BUILDING_NAME;
-
-        public string LeafOrganizationID { get; set; }
-        public string LeafOrganizationName { get; set; }
+        public string ROOM_NBR;
     }
 }

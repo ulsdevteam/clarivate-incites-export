@@ -4,39 +4,43 @@ using System.Linq;
 
 namespace clarivate_incites_export
 {
-    public class HierarchyBuilder 
+    class HierarchyBuilder
     {
-        private record LevelFunctions(Func<EmployeeData, bool> CondFn, Func<EmployeeData, string> GroupFn, Func<EmployeeData, OrgHierarchyRecord, string> IdFn, Func<EmployeeData, OrgHierarchyRecord, string> NameFn);
+        OrgHierarchyRecord TopLevelRecord { get; set; }
+        List<LevelFunctions> Levels { get; } = new();
 
-        private OrgHierarchyRecord TopLevelRecord { get; set; }
-        private List<LevelFunctions> Levels { get; } = new List<LevelFunctions>();
-
-        public HierarchyBuilder TopLevel(string orgId, string orgName) 
+        public HierarchyBuilder TopLevel(string orgId, string orgName)
         {
-            TopLevelRecord = new OrgHierarchyRecord {
+            TopLevelRecord = new OrgHierarchyRecord
+            {
                 OrganizationID = orgId,
                 OrganizationName = orgName
             };
             return this;
         }
 
-        public HierarchyBuilder Then(Func<EmployeeData, string> groupFn, Func<EmployeeData, OrgHierarchyRecord, string> idFn, Func<EmployeeData, OrgHierarchyRecord, string> nameFn)
+        public HierarchyBuilder Then(Func<EmployeeData, object> groupFn,
+            Func<EmployeeData, OrgHierarchyRecord, string> idFn, Func<EmployeeData, OrgHierarchyRecord, string> nameFn)
         {
             Levels.Add(new LevelFunctions(_ => true, groupFn, idFn, nameFn));
             return this;
         }
 
-        public HierarchyBuilder ThenCond(Func<EmployeeData, bool> condFn, Func<EmployeeData, string> groupFn, Func<EmployeeData, OrgHierarchyRecord, string> idFn, Func<EmployeeData, OrgHierarchyRecord, string> nameFn)
+        public HierarchyBuilder ThenCond(Func<EmployeeData, bool> condFn, Func<EmployeeData, object> groupFn,
+            Func<EmployeeData, OrgHierarchyRecord, string> idFn, Func<EmployeeData, OrgHierarchyRecord, string> nameFn)
         {
             Levels.Add(new LevelFunctions(condFn, groupFn, idFn, nameFn));
             return this;
         }
 
-        public List<OrgHierarchyRecord> Build(IEnumerable<EmployeeData> allEmployees)
+        public (List<OrgHierarchyRecord>, List<ResearcherRecord>) BuildRecords(
+            IEnumerable<EmployeeData> allEmployees, IdentifierLookup idLookup)
         {
             var orgs = new List<OrgHierarchyRecord> { TopLevelRecord };
-            if (Levels.Any()) RunLevel(0, TopLevelRecord, allEmployees);
-            return orgs;
+            var researchers = new List<ResearcherRecord>();
+            if (Levels.Any()) { RunLevel(0, TopLevelRecord, allEmployees); }
+
+            return (orgs, researchers);
 
             void RunLevel(int level, OrgHierarchyRecord parentOrg, IEnumerable<EmployeeData> employees)
             {
@@ -55,12 +59,10 @@ namespace clarivate_incites_export
                     orgs.Add(org);
                     // An employee is on a leaf if this level applies to them and no subsequent levels do
                     var (leaves, nonLeaves) =
-                        group.SplitBy(e => !Levels.Skip(level).Any(l => l.CondFn(e)));
-                    foreach (var employee in leaves)
-                    {
-                        employee.LeafOrganizationID = org.OrganizationID;
-                        employee.LeafOrganizationName = org.OrganizationName;
-                    }
+                        group.SplitBy(e => !Levels.Skip(level + 1).Any(l => l.CondFn(e)));
+                    researchers.AddRange(leaves.Select(employee =>
+                        new ResearcherRecord(employee, org,
+                            idLookup.GetIdentifiers(employee.EMPLID, employee.USERNAME))));
 
                     RunLevel(level + 1, org, nonLeaves);
                 }
@@ -68,5 +70,8 @@ namespace clarivate_incites_export
                 RunLevel(level + 1, parentOrg, skipEmployees);
             }
         }
+
+        record LevelFunctions(Func<EmployeeData, bool> CondFn, Func<EmployeeData, object> GroupFn,
+            Func<EmployeeData, OrgHierarchyRecord, string> IdFn, Func<EmployeeData, OrgHierarchyRecord, string> NameFn);
     }
 }
