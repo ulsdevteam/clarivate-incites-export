@@ -42,15 +42,16 @@ namespace clarivate_incites_export
         {
             using var udDataConnection = Connect("UD_DATA_CONNECTION");
             var employeeData = udDataConnection.Query<EmployeeData>(GetSql("EmployeeDataQuery.sql")).ToList();
-            
             var maxJobKeyLen = employeeData.Select(e => e.JOB_KEY.Length).Max();
-            var buildingDifferentiator = new Dictionary<string, int>();
-            string GetBuildingOrgId(string parentOrgId) {
-                if (buildingDifferentiator.TryGetValue(parentOrgId, out var num)) {
-                    buildingDifferentiator[parentOrgId] = num + 1;
+            
+            var locationDifferentiator = new Dictionary<string, int>();
+            // This will be called once on each location, and assigns them an increasing id
+            string GetLocationOrgId(string parentOrgId) {
+                if (locationDifferentiator.TryGetValue(parentOrgId, out var num)) {
+                    locationDifferentiator[parentOrgId] = num + 1;
                     return parentOrgId + num;
                 } else {
-                    buildingDifferentiator[parentOrgId] = 2;
+                    locationDifferentiator[parentOrgId] = 2;
                     return parentOrgId + "1";
                 }
             }
@@ -74,10 +75,10 @@ namespace clarivate_incites_export
                     (e, parent) => parent.OrganizationID + TenureCode(e.FACULTY_TENURE_STATUS_DESCR), 
                     (e, parent) => parent.OrganizationName + " - " + TenureDesc(e.FACULTY_TENURE_STATUS_DESCR))
                 .ThenCond(
-                    e => e.DEPARTMENT_DESCR == "Pediatrics",
-                    e => e.BUILDING_NAME, 
-                    (e, parent) => GetBuildingOrgId(parent.OrganizationID), 
-                    (e, parent) => parent.OrganizationName + " - " + e.BUILDING_NAME)
+                    e => e.DEPARTMENT_DESCR.Contains("Pediatric"),
+                    e => (e.BUILDING_NAME, e.ROOM_NBR), 
+                    (e, parent) => GetLocationOrgId(parent.OrganizationID), 
+                    (e, parent) => parent.OrganizationName + " - " + e.BUILDING_NAME + " " + e.ROOM_NBR)
                 .Build(employeeData);
 
             var employees = employeeData.Select(e => new Person(e)).ToList();

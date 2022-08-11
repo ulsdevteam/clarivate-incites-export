@@ -6,7 +6,7 @@ namespace clarivate_incites_export
 {
     public class HierarchyBuilder 
     {
-        private record LevelFunctions(Func<EmployeeData, bool> CondFn, Func<EmployeeData, string> GroupFn, Func<EmployeeData, OrgHierarchyRecord, string> IdFn, Func<EmployeeData, OrgHierarchyRecord, string> NameFn);
+        private record LevelFunctions(Func<EmployeeData, bool> CondFn, Func<EmployeeData, object> GroupFn, Func<EmployeeData, OrgHierarchyRecord, string> IdFn, Func<EmployeeData, OrgHierarchyRecord, string> NameFn);
 
         private OrgHierarchyRecord TopLevelRecord { get; set; }
         private List<LevelFunctions> Levels { get; } = new List<LevelFunctions>();
@@ -20,13 +20,13 @@ namespace clarivate_incites_export
             return this;
         }
 
-        public HierarchyBuilder Then(Func<EmployeeData, string> groupFn, Func<EmployeeData, OrgHierarchyRecord, string> idFn, Func<EmployeeData, OrgHierarchyRecord, string> nameFn)
+        public HierarchyBuilder Then(Func<EmployeeData, object> groupFn, Func<EmployeeData, OrgHierarchyRecord, string> idFn, Func<EmployeeData, OrgHierarchyRecord, string> nameFn)
         {
             Levels.Add(new LevelFunctions(_ => true, groupFn, idFn, nameFn));
             return this;
         }
 
-        public HierarchyBuilder ThenCond(Func<EmployeeData, bool> condFn, Func<EmployeeData, string> groupFn, Func<EmployeeData, OrgHierarchyRecord, string> idFn, Func<EmployeeData, OrgHierarchyRecord, string> nameFn)
+        public HierarchyBuilder ThenCond(Func<EmployeeData, bool> condFn, Func<EmployeeData, object> groupFn, Func<EmployeeData, OrgHierarchyRecord, string> idFn, Func<EmployeeData, OrgHierarchyRecord, string> nameFn)
         {
             Levels.Add(new LevelFunctions(condFn, groupFn, idFn, nameFn));
             return this;
