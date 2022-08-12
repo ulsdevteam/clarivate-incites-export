@@ -10,175 +10,159 @@ using Dapper;
 using dotenv.net;
 using Microsoft.Extensions.Configuration;
 using Oracle.ManagedDataAccess.Client;
+using clarivate_incites_export;
 
-namespace clarivate_incites_export
+DotEnv.Load();
+IConfiguration config = new ConfigurationBuilder()
+    .AddEnvironmentVariables()
+    .Build();
+Parser.Default.ParseArguments<Options>(args).WithParsed(options =>
 {
-    static class Program
+    try { RunExport(options); }
+    catch (ConnectionException e) { Console.Error.WriteLine(e); }
+    catch (OracleException e) { Console.Error.WriteLine("Oracle Error: " + e); }
+});
+
+void RunExport(Options options)
+{
+    using var udDataConnection = Connect("UD_DATA_CONNECTION");
+    using var orcidConnection = Connect("ORCID_CONNECTION");
+
+    var idLookup = new IdentifierLookup();
+    var identifiers = udDataConnection.Query<IdentifierData>(GetSql("ResearcherIdsQuery.sql"));
+    foreach (var (emplid, username, email, identifierId, identifierValue) in identifiers)
     {
-        public static IConfiguration Config { get; private set; }
+        if (!string.IsNullOrWhiteSpace(email)) { idLookup.AddEmail(emplid, username, email); }
+        var identifierName = Identifier.TranslateId(identifierId);
+        if (identifierName == "EMAIL") { idLookup.AddEmail(emplid, username, identifierValue); }
+        else { idLookup.AddId(emplid, username, new Identifier(identifierName, identifierValue)); }
+    }
 
-        static void Main(string[] args)
+    var orcids = orcidConnection.Query<OrcidData>(GetSql("OrcidQuery.sql"));
+    foreach (var (username, orcid) in orcids) { idLookup.AddId(null, username, new Identifier("ORCID", orcid)); }
+
+    var locationDifferentiator = new Dictionary<string, int>();
+
+    // This will be called once on each location, and assigns them an increasing id within the parent org
+    string GetLocationOrgId(string parentOrgId)
+    {
+        if (locationDifferentiator.TryGetValue(parentOrgId, out var num))
         {
-            DotEnv.Load();
-            Config = new ConfigurationBuilder()
-                .AddEnvironmentVariables()
-                .Build();
-
-            Parser.Default.ParseArguments<Options>(args).WithParsed(options =>
-            {
-                try { RunExport(options); }
-                catch (ConnectionException e) { Console.Error.WriteLine(e); }
-                catch (OracleException e) { Console.Error.WriteLine("Oracle Error: " + e); }
-            });
+            locationDifferentiator[parentOrgId] = num + 1;
+            return parentOrgId + num;
         }
+        locationDifferentiator[parentOrgId] = 2;
+        return parentOrgId + "1";
+    }
 
-        static void RunExport(Options options)
-        {
-            using var udDataConnection = Connect("UD_DATA_CONNECTION");
-            using var orcidConnection = Connect("ORCID_CONNECTION");
+    var employeeData = udDataConnection.Query<EmployeeData>(GetSql("EmployeeDataQuery.sql")).ToList();
+    var maxJobKeyLen = employeeData.Select(e => e.JOB_KEY.Length).Max();
+    var (orgHierarchy, researcherRecords) = new HierarchyBuilder()
+        .TopLevel("0", "Selections from University of Pittsburgh")
+        .Then(
+            e => e.RESPONSIBILITY_CENTER_CD,
+            (e, _) => e.RESPONSIBILITY_CENTER_CD,
+            (e, _) => "Selections from " + e.RESPONSIBILITY_CENTER_DESCR)
+        .Then(
+            e => e.DEPARTMENT_CD,
+            (e, _) => e.DEPARTMENT_CD,
+            (e, _) => e.DEPARTMENT_DESCR)
+        .Then(
+            e => e.JOB_KEY,
+            (e, parent) => parent.OrganizationID + e.JOB_KEY.PadLeft(maxJobKeyLen, '0'),
+            (e, parent) => parent.OrganizationName + " - " + e.JOB_FAMILY + " - " + e.JOB_CLASS)
+        .Then(
+            e => TenureCode(e.FACULTY_TENURE_STATUS_DESCR),
+            (e, parent) => parent.OrganizationID + TenureCode(e.FACULTY_TENURE_STATUS_DESCR),
+            (e, parent) => parent.OrganizationName + " - " + TenureDesc(e.FACULTY_TENURE_STATUS_DESCR))
+        .ThenCond(
+            e => e.DEPARTMENT_DESCR.Contains("Pediatric"),
+            e => (e.BUILDING_NAME, e.ROOM_NBR),
+            (_, parent) => GetLocationOrgId(parent.OrganizationID),
+            (e, parent) => parent.OrganizationName + " - " + e.BUILDING_NAME + " " + e.ROOM_NBR)
+        .BuildRecords(employeeData, idLookup);
 
-            var idLookup = new IdentifierLookup();
-            var identifiers = udDataConnection.Query<(
-                string EMPLID,
-                string USERNAME,
-                string EMAIL,
-                string IDENTIFIER_ID,
-                string IDENTIFIER_VALUE
-                )>(GetSql("ResearcherIdsQuery.sql"));
-            foreach (var (emplid, username, email, identifierId, identifierValue) in identifiers)
-            {
-                if (!string.IsNullOrWhiteSpace(email)) { idLookup.AddEmail(emplid, username, email); }
+    var dupes = orgHierarchy.GroupBy(o => long.Parse(o.OrganizationID)).Where(g => g.Count() > 1);
+    foreach (var dupe in dupes)
+    {
+        Console.WriteLine($"Duplicate organization id: {dupe.Key}");
+        foreach (var org in dupe) { Console.WriteLine(org.OrganizationName); }
+    }
 
-                if (identifierId == "17") { idLookup.AddEmail(emplid, username, identifierValue); }
-                else
-                {
-                    idLookup.AddId(emplid, username,
-                        new Identifier(Identifier.TranslateId(identifierId), identifierValue));
-                }
-            }
+    WriteToCsv(options.OrgHierarchyCsvOutputPath, orgHierarchy);
+    WriteToCsv(options.ResearchersCsvOutputPath, researcherRecords);
+}
 
-            var orcids = orcidConnection.Query<(string USERNAME, string ORCID)>(GetSql("OrcidQuery.sql"));
-            foreach (var (username, orcid) in orcids)
-            {
-                idLookup.AddId(null, username, new Identifier("ORCID", orcid));
-            }
+OracleConnection Connect(string connectionStringName)
+{
+    try
+    {
+        var connection = new OracleConnection(config[connectionStringName]);
+        connection.Open();
+        return connection;
+    }
+    catch (InvalidOperationException e) when (e.Message == "OracleConnection.ConnectionString is invalid")
+    {
+        throw new ConnectionException(
+            $"Connection string '{connectionStringName}' is invalid and a connection to oracle could not be made.",
+            e);
+    }
+}
 
-            var locationDifferentiator = new Dictionary<string, int>();
+static string TenureCode(string tenureStatus)
+{
+    return tenureStatus switch
+    {
+        null or "" or "Non-Tenured" => "1",
+        "Tenure Stream" => "2",
+        "Tenured" => "3",
+        _ => throw new ArgumentException("Unrecognized Tenure Status value.", nameof(tenureStatus))
+    };
+}
 
-            // This will be called once on each location, and assigns them an increasing id
-            string GetLocationOrgId(string parentOrgId)
-            {
-                if (locationDifferentiator.TryGetValue(parentOrgId, out var num))
-                {
-                    locationDifferentiator[parentOrgId] = num + 1;
-                    return parentOrgId + num;
-                }
+static string TenureDesc(string tenureStatus)
+{
+    return tenureStatus switch
+    {
+        null or "" or "Non-Tenured" => "Non tenure track",
+        "Tenure Stream" => "Tenure track, pre-tenure",
+        "Tenured" => "Tenure track, tenured",
+        _ => throw new ArgumentException("Unrecognized Tenure Status value.", nameof(tenureStatus))
+    };
+}
 
-                locationDifferentiator[parentOrgId] = 2;
-                return parentOrgId + "1";
-            }
+static string GetSql(string filename)
+{
+    using var stream = Assembly.GetExecutingAssembly()
+                           .GetManifestResourceStream($"clarivate_incites_export.sql.{filename}") ??
+                       throw new InvalidOperationException("Resource not found.");
+    using var reader = new StreamReader(stream);
+    return reader.ReadToEnd();
+}
 
-            var employeeData = udDataConnection.Query<EmployeeData>(GetSql("EmployeeDataQuery.sql")).ToList();
-            var maxJobKeyLen = employeeData.Select(e => e.JOB_KEY.Length).Max();
-            var (orgHierarchy, researcherRecords) = new HierarchyBuilder()
-                .TopLevel("0", "Selections from University of Pittsburgh")
-                .Then(
-                    e => e.RESPONSIBILITY_CENTER_CD,
-                    (e, _) => e.RESPONSIBILITY_CENTER_CD,
-                    (e, _) => "Selections from " + e.RESPONSIBILITY_CENTER_DESCR)
-                .Then(
-                    e => e.DEPARTMENT_CD,
-                    (e, _) => e.DEPARTMENT_CD,
-                    (e, _) => e.DEPARTMENT_DESCR)
-                .Then(
-                    e => e.JOB_KEY,
-                    (e, parent) => parent.OrganizationID + e.JOB_KEY.PadLeft(maxJobKeyLen, '0'),
-                    (e, parent) => parent.OrganizationName + " - " + e.JOB_FAMILY + " - " + e.JOB_CLASS)
-                .Then(
-                    e => TenureCode(e.FACULTY_TENURE_STATUS_DESCR),
-                    (e, parent) => parent.OrganizationID + TenureCode(e.FACULTY_TENURE_STATUS_DESCR),
-                    (e, parent) => parent.OrganizationName + " - " + TenureDesc(e.FACULTY_TENURE_STATUS_DESCR))
-                .ThenCond(
-                    e => e.DEPARTMENT_DESCR.Contains("Pediatric"),
-                    e => (e.BUILDING_NAME, e.ROOM_NBR),
-                    (e, parent) => GetLocationOrgId(parent.OrganizationID),
-                    (e, parent) => parent.OrganizationName + " - " + e.BUILDING_NAME + " " + e.ROOM_NBR)
-                .BuildRecords(employeeData, idLookup);
+static void WriteToCsv<T>(string outputPath, IEnumerable<T> records)
+{
+    using var writer = new StreamWriter(outputPath);
+    using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
+    csv.WriteHeader<T>();
+    csv.NextRecord();
+    csv.WriteRecords(records);
+}
 
-            var dupes = orgHierarchy.GroupBy(o => long.Parse(o.OrganizationID)).Where(g => g.Count() > 1);
-            foreach (var dupe in dupes)
-            {
-                Console.WriteLine($"Duplicate organization id: {dupe.Key}");
-                foreach (var org in dupe) { Console.WriteLine(org.OrganizationName); }
-            }
+static class Extensions
+{
+    public static (List<T>, List<T>) SplitBy<T>(this IEnumerable<T> source, Func<T, bool> predicate)
+    {
+        var trueList = new List<T>();
+        var falseList = new List<T>();
+        foreach (var item in source) { (predicate(item) ? trueList : falseList).Add(item); }
+        return (trueList, falseList);
+    }
 
-            WriteToCsv(options.OrgHierarchyCsvOutputPath, orgHierarchy);
-            WriteToCsv(options.ResearchersCsvOutputPath, researcherRecords);
-        }
-
-        static OracleConnection Connect(string connectionStringName)
-        {
-            try
-            {
-                var connection = new OracleConnection(Config[connectionStringName]);
-                connection.Open();
-                return connection;
-            }
-            catch (InvalidOperationException e) when (e.Message == "OracleConnection.ConnectionString is invalid")
-            {
-                throw new ConnectionException(
-                    $"Connection string '{connectionStringName}' is invalid and a connection to oracle could not be made.",
-                    e);
-            }
-        }
-
-        static string TenureCode(string tenureStatus)
-        {
-            return tenureStatus switch
-            {
-                null or "" or "Non-Tenured" => "1",
-                "Tenure Stream" => "2",
-                "Tenured" => "3",
-                _ => throw new ArgumentException("Unrecognized Tenure Status value.", nameof(tenureStatus))
-            };
-        }
-
-        static string TenureDesc(string tenureStatus)
-        {
-            return tenureStatus switch
-            {
-                null or "" or "Non-Tenured" => "Non tenure track",
-                "Tenure Stream" => "Tenure track, pre-tenure",
-                "Tenured" => "Tenure track, tenured",
-                _ => throw new ArgumentException("Unrecognized Tenure Status value.", nameof(tenureStatus))
-            };
-        }
-
-        static string GetSql(string filename)
-        {
-            using var stream = Assembly.GetExecutingAssembly()
-                                   .GetManifestResourceStream($"clarivate_incites_export.sql.{filename}") ??
-                               throw new InvalidOperationException("Resource not found.");
-            using var reader = new StreamReader(stream);
-            return reader.ReadToEnd();
-        }
-
-        static void WriteToCsv<T>(string outputPath, IEnumerable<T> records)
-        {
-            using var writer = new StreamWriter(outputPath);
-            using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
-            csv.WriteHeader<T>();
-            csv.NextRecord();
-            csv.WriteRecords(records);
-        }
-
-        public static (List<T>, List<T>) SplitBy<T>(this IEnumerable<T> source, Func<T, bool> predicate)
-        {
-            var trueList = new List<T>();
-            var falseList = new List<T>();
-            foreach (var item in source) { (predicate(item) ? trueList : falseList).Add(item); }
-
-            return (trueList, falseList);
-        }
+    public static TValue GetOrInsertNew<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key)
+        where TValue : new()
+    {
+        if (!dictionary.TryGetValue(key, out var value)) { dictionary.Add(key, value = new TValue()); }
+        return value;
     }
 }

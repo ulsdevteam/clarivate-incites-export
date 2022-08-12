@@ -2,124 +2,67 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace clarivate_incites_export
+namespace clarivate_incites_export;
+
+class Identifiers
 {
-    class Identifiers
-    {
-        public HashSet<Identifier> Ids { get; private init; } = new HashSet<Identifier>();
-        public HashSet<string> Emails { get; private init; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    public HashSet<Identifier> Ids { get; private init; } = new();
+    public HashSet<string> Emails { get; private init; } = new(StringComparer.OrdinalIgnoreCase);
 
-        public static Identifiers operator +(Identifiers lhs, Identifiers rhs)
+    public static Identifiers operator +(Identifiers lhs, Identifiers rhs)
+    {
+        return new Identifiers
         {
-            return new Identifiers
-            {
-                Ids = new HashSet<Identifier>(lhs.Ids.Concat(rhs.Ids)),
-                Emails = new HashSet<string>(lhs.Emails.Concat(rhs.Emails))
-            };
-        }
+            Ids = new HashSet<Identifier>(lhs.Ids.Concat(rhs.Ids)),
+            Emails = new HashSet<string>(lhs.Emails.Concat(rhs.Emails), StringComparer.OrdinalIgnoreCase)
+        };
+    }
+}
+
+class IdentifierLookup
+{
+    readonly Dictionary<string, Identifiers> byEmplid = new();
+    readonly Dictionary<string, Identifiers> byUsername = new();
+
+    public void AddId(string emplid, string username, Identifier identifier)
+    {
+        if (emplid is not null) { byEmplid.GetOrInsertNew(emplid).Ids.Add(identifier); }
+        if (username is not null) { byUsername.GetOrInsertNew(username).Ids.Add(identifier); }
     }
 
-    class IdentifierLookup
+    public void AddEmail(string emplid, string username, string email)
     {
-        readonly Dictionary<string, Identifiers> byEmplid = new Dictionary<string, Identifiers>();
-        readonly Dictionary<string, Identifiers> byUsername = new Dictionary<string, Identifiers>();
-
-        public void AddId(string emplid, string username, Identifier identifier)
-        {
-            if (emplid is not null)
-            {
-                if (!byEmplid.ContainsKey(emplid)) { byEmplid[emplid] = new Identifiers(); }
-
-                byEmplid[emplid].Ids.Add(identifier);
-            }
-
-            if (username is not null)
-            {
-                if (!byUsername.ContainsKey(username)) { byUsername[username] = new Identifiers(); }
-
-                byUsername[username].Ids.Add(identifier);
-            }
-        }
-
-        public void AddEmail(string emplid, string username, string email)
-        {
-            if (emplid is not null)
-            {
-                if (!byEmplid.ContainsKey(emplid)) { byEmplid[emplid] = new Identifiers(); }
-
-                byEmplid[emplid].Emails.Add(email);
-            }
-
-            if (username is not null)
-            {
-                if (!byUsername.ContainsKey(username)) { byUsername[username] = new Identifiers(); }
-
-                byUsername[username].Emails.Add(email);
-            }
-        }
-
-        public Identifiers GetIdentifiers(string emplid, string username)
-        {
-            var identifiers = new Identifiers();
-            if (emplid is not null && byEmplid.ContainsKey(emplid)) { identifiers += byEmplid[emplid]; }
-            if (username is not null && byUsername.ContainsKey(username)) { identifiers += byUsername[username]; }
-            return identifiers;
-        }
+        if (emplid is not null) { byEmplid.GetOrInsertNew(emplid).Emails.Add(email); }
+        if (username is not null) { byUsername.GetOrInsertNew(username).Emails.Add(email); }
     }
 
-    readonly struct Identifier
+    public Identifiers GetIdentifiers(string emplid, string username)
     {
-        public string Name { get; }
-        public string Value { get; }
+        var identifiers = new Identifiers();
+        if (emplid is not null && byEmplid.TryGetValue(emplid, out var ids)) { identifiers += ids; }
+        if (username is not null && byUsername.TryGetValue(username, out ids)) { identifiers += ids; }
+        return identifiers;
+    }
+}
 
-        public Identifier(string name, string value)
-        {
-            Name = name;
-            Value = value;
-        }
+readonly record struct Identifier(string Name, string Value)
+{
+    public override string ToString()
+    {
+        return $"{Name}:{Value}";
+    }
 
-        public bool Equals(Identifier other)
+    public static string TranslateId(string id)
+    {
+        return id switch
         {
-            return Name == other.Name && Value == other.Value;
-        }
-
-        public override bool Equals(object obj)
-        {
-            return obj is Identifier other && Equals(other);
-        }
-
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(Name, Value);
-        }
-
-        public static bool operator ==(Identifier left, Identifier right)
-        {
-            return left.Equals(right);
-        }
-
-        public static bool operator !=(Identifier left, Identifier right)
-        {
-            return !left.Equals(right);
-        }
-
-        public override string ToString()
-        {
-            return $"{Name}:{Value}";
-        }
-
-        public static string TranslateId(string id)
-        {
-            return id switch
-            {
-                "8" => "WOS",
-                "9" => "ORCID",
-                "10" => "SCOPUS",
-                "11" => "ARXIV",
-                "17" => "EMAIL",
-                "23" => "SSRN",
-                _ => throw new ArgumentException("Unrecognized research identifier id.", nameof(id))
-            };
-        }
+            "8" => "WOS",
+            "9" => "ORCID",
+            "10" => "SCOPUS",
+            "11" => "ARXIV",
+            "17" => "EMAIL",
+            "23" => "SSRN",
+            _ => throw new ArgumentException($"Unrecognized research identifier id: '{id}'.", nameof(id))
+        };
     }
 }
