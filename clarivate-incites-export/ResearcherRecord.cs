@@ -17,7 +17,7 @@ class ResearcherRecord
             : identifiers.Ids.Select(id => id.ToString()).SingleOrDefault();
         EmailAddress = identifiers.Emails.Count > 1
             ? string.Join("", identifiers.Emails.Select(email => $"({email})"))
-            : identifiers.Emails.SingleOrDefault() ?? "no_email@pitt.edu";
+            : identifiers.Emails.SingleOrDefault() ?? $"{employee.USERNAME ?? "no_email"}@pitt.edu";
     }
 
     // ID from peoplesoft / employee number
