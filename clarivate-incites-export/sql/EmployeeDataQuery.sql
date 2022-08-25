@@ -278,16 +278,9 @@ where ranker = 1
             and ASSIGNMENT_STATUS_KEY not in (4, 17, 18, 20, 35))
         or
         -- GSPH
-        (RESPONSIBILITY_CENTER_CD = 34
-            and JOB_TYPE = 'Faculty'
-            and JOB_FAMILY not in (
-                                   'Lecturer', 'Adjunct Assistant', 'Adjunct Clinical', 'Instructor', 'Adjunct',
-                                   'Research Assistant', 'Adjunct Clinical Assistant',
-                                   'Adjunct Research Assistant', 'Adjunct Associate', 'Clinical Assistant',
-                                   'Distinguished', 'Visiting')
-            and ASSIGNMENT_STATUS_KEY not in (4, 17, 18, 20, 35))
+        (RESPONSIBILITY_CENTER_CD = 34 and ASSIGNMENT_STATUS_KEY not in (4, 17, 18, 20, 35))
         or
-        /* Not yet responded:
+        /* No response, default criteria:
         Chancellor
         Kenneth P. Dietrich School of Arts & Sciences
         Education
