@@ -160,7 +160,7 @@ static class Extensions
     }
 
     public static TValue GetOrInsertNew<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key)
-        where TValue : new()
+        where TValue : class, new()
     {
         if (!dictionary.TryGetValue(key, out var value)) { dictionary.Add(key, value = new TValue()); }
         return value;
