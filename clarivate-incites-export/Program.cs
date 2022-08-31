@@ -55,18 +55,6 @@ void RunExport(Options options)
         return parentOrgId + "1";
     }
 
-    var schoolOfMedicineRCs = new[]
-    {
-        30, // SVC Health Sciences
-        31, // Dental Medicine
-        32, // Nursing
-        33, // Pharmacy
-        34, // GSPH
-        35, // Medicine
-        39, // SHRS
-        55, // UPMC Hillman Cancer Center
-    }.Select(x => x.ToString()).ToHashSet();
-
     var employeeData = udDataConnection.Query<EmployeeData>(GetSql("EmployeeDataQuery.sql")).ToList();
     var maxJobKeyLen = employeeData.Select(e => e.JOB_KEY.Length).Max();
     var (orgHierarchy, researcherRecords) = new HierarchyBuilder()
@@ -88,7 +76,7 @@ void RunExport(Options options)
             (e, parent) => parent.OrganizationID + TenureCode(e.FACULTY_TENURE_STATUS_DESCR),
             (e, parent) => parent.OrganizationName + " - " + TenureDesc(e.FACULTY_TENURE_STATUS_DESCR))
         .ThenCond(
-            e => schoolOfMedicineRCs.Contains(e.RESPONSIBILITY_CENTER_CD),
+            e => e.RESPONSIBILITY_CENTER_CD == "35", // School of Medicine
             e => (e.BUILDING_NAME, e.ROOM_NBR),
             (_, parent) => GetLocationOrgId(parent.OrganizationID),
             (e, parent) => parent.OrganizationName + " - " + e.BUILDING_NAME + " " + e.ROOM_NBR)
