@@ -67,6 +67,11 @@ void RunExport(Options options)
             e => e.DEPARTMENT_CD,
             (e, _) => e.DEPARTMENT_CD,
             (e, _) => e.DEPARTMENT_DESCR)
+        .ThenCond(
+            e => e.RESPONSIBILITY_CENTER_CD == "35", // School of Medicine
+            e => e.BUILDING_NAME,
+            (_, parent) => GetLocationOrgId(parent.OrganizationID),
+            (e, parent) => parent.OrganizationName + " - " + e.BUILDING_NAME)
         .Then(
             e => e.JOB_KEY,
             (e, parent) => parent.OrganizationID + e.JOB_KEY.PadLeft(maxJobKeyLen, '0'),
@@ -75,11 +80,6 @@ void RunExport(Options options)
             e => TenureCode(e.FACULTY_TENURE_STATUS_DESCR),
             (e, parent) => parent.OrganizationID + TenureCode(e.FACULTY_TENURE_STATUS_DESCR),
             (e, parent) => parent.OrganizationName + " - " + TenureDesc(e.FACULTY_TENURE_STATUS_DESCR))
-        .ThenCond(
-            e => e.RESPONSIBILITY_CENTER_CD == "35", // School of Medicine
-            e => (e.BUILDING_NAME, e.ROOM_NBR),
-            (_, parent) => GetLocationOrgId(parent.OrganizationID),
-            (e, parent) => parent.OrganizationName + " - " + e.BUILDING_NAME + " " + e.ROOM_NBR)
         .BuildRecords(employeeData, idLookup);
 
     var dupes = orgHierarchy.GroupBy(o => long.Parse(o.OrganizationID)).Where(g => g.Count() > 1);
