@@ -71,7 +71,7 @@ void RunExport(Options options)
             e => e.RESPONSIBILITY_CENTER_CD == "35", // School of Medicine
             e => e.BUILDING_NAME,
             (_, parent) => GetLocationOrgId(parent.OrganizationID),
-            (e, parent) => parent.OrganizationName + " - " + e.BUILDING_NAME ?? "Unknown Office Location")
+            (e, parent) => parent.OrganizationName + " - " + (e.BUILDING_NAME ?? "Unknown Office Location"))
         .Then(
             e => e.JOB_KEY,
             (e, parent) => parent.OrganizationID + e.JOB_KEY.PadLeft(maxJobKeyLen, '0'),
