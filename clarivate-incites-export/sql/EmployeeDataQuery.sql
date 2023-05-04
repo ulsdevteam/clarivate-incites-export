@@ -237,17 +237,16 @@ where ranker = 1
         or
         -- Medicine
         (RESPONSIBILITY_CENTER_CD = 35
-            and JOB_TYPE in ('Faculty', 'Post Doctoral')
-            and not (JOB_TYPE = 'Faculty' and JOB_FAMILY in ('Lecturer', 'Scholar', 'Instructor'))
-            and not (JOB_TYPE = 'Faculty' and JOB_FAMILY = 'Professor' and JOB_CLASS in
-                                                                           ('Adjunct Assistant', 'Adjunct',
-                                                                            'Adjunct Associate', 'Research Assistant',
-                                                                            'Clinical Assistant', 'Clinical Associate',
-                                                                            'Distinguished Service',
-                                                                            'Research Associate'))
-            and EMPLOYEE_FULL_PART_TIME_DESCR in ('Fulltime-Regular', 'Fulltime-Temporary')
+            and JOB_TYPE = 'Faculty'
+            and not (JOB_FAMILY = 'Scholar')
+            and not (JOB_FAMILY = 'Professor' and JOB_CLASS in
+                ('Visiting', 'Visiting Associate', 'Visiting Assistant',
+                'Visiting Research Assistant', 'Visiting Research Associate'))
+            and not (JOB_FAMILY = 'Instructor' and JOB_CLASS in 
+                ('Visiting', 'Visiting Research'))
+            and EMPLOYEE_FULL_PART_TIME_DESCR in ('Fulltime-Regular', 'Parttime-Regular')
             and (ASSIGNMENT_STATUS_KEY not in (4, 17, 18, 20, 35) or
-                 (ASSIGNMENT_STATUS_KEY in (17, 18) and last_day_worked_dt >= '01-JUL-16'))
+                 (ASSIGNMENT_STATUS_KEY in (17, 18) and last_day_worked_dt >= '01-JUL-19'))
             )
         or
         -- SCI
