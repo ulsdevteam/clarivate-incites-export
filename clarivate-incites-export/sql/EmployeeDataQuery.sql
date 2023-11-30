@@ -150,7 +150,7 @@ where ranker = 1
         (RESPONSIBILITY_CENTER_CD = 23
             and JOB_TYPE = 'Faculty'
             and (ASSIGNMENT_STATUS_KEY not in (17, 18) or
-                 (ASSIGNMENT_STATUS_KEY in (17, 18) and last_day_worked_dt >= '01-JUL-19'))
+                 (ASSIGNMENT_STATUS_KEY in (17, 18) and last_day_worked_dt >= TO_DATE(CONCAT('01 JUL ', EXTRACT(YEAR FROM CURRENT_DATE) - 3), 'DD MON YYYY')))
             and JOB_FAMILY not in
                 ('Adjunct Assistant', 'Adjunct Associate', 'Visiting Research', 'Adjunct Research',
                  'Adjunct Research Assistant',
@@ -189,7 +189,7 @@ where ranker = 1
                                                                 'Clinical Associate', 'Distinguished Service',
                                                                 'Research Associate'))
             and (ASSIGNMENT_STATUS_KEY not in (17, 18) or
-                 (ASSIGNMENT_STATUS_KEY in (17, 18) and last_day_worked_dt >= '01-JUL-16'))
+                 (ASSIGNMENT_STATUS_KEY in (17, 18) and last_day_worked_dt >= TO_DATE(CONCAT('01 JUL ', EXTRACT(YEAR FROM CURRENT_DATE) - 6), 'DD MON YYYY')))
             and EMPLOYEE_FULL_PART_TIME_DESCR in ('Fulltime-Regular', 'Fulltime-Temporary', 'Parttime-Regular')
             )
         or
@@ -225,7 +225,7 @@ where ranker = 1
                                                                                          'Clinical Assistant',
                                                                                          'Distinguished', 'Visiting'))
             and (ASSIGNMENT_STATUS_KEY not in (17, 18) or
-                 (ASSIGNMENT_STATUS_KEY in (17, 18) and last_day_worked_dt >= '01-JUL-16'))
+                 (ASSIGNMENT_STATUS_KEY in (17, 18) and last_day_worked_dt >= TO_DATE(CONCAT('01 JUL ', EXTRACT(YEAR FROM CURRENT_DATE) - 6), 'DD MON YYYY')))
             and EMPLOYEE_FULL_PART_TIME_DESCR in ('Parttime-Temporary', 'Parttime-Regular', 'Fulltime-Regular')
             )
         or
@@ -246,7 +246,7 @@ where ranker = 1
                 ('Visiting', 'Visiting Research'))
             and EMPLOYEE_FULL_PART_TIME_DESCR in ('Fulltime-Regular', 'Parttime-Regular')
             and (ASSIGNMENT_STATUS_KEY not in (4, 17, 18, 20, 35) or
-                 (ASSIGNMENT_STATUS_KEY in (17, 18) and last_day_worked_dt >= '01-JUL-19'))
+                 (ASSIGNMENT_STATUS_KEY in (17, 18) and last_day_worked_dt >= TO_DATE(CONCAT('01 JUL ', EXTRACT(YEAR FROM CURRENT_DATE) - 3), 'DD MON YYYY')))
             )
         or
         -- SCI
