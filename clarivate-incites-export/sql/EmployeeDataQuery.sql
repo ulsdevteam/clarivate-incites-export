@@ -272,9 +272,11 @@ where ranker = 1
                                    'Research Assistant',
                                    'Clinical Assistant', 'Clinical Associate', 'Distinguished Service',
                                    'Research Associate', 'Instructor')
-            and EMPLOYEE_FULL_PART_TIME_DESCR in
-                ('Fulltime-Regular', 'Fulltime-Temporary', 'Parttime-Temporary', 'Parttime-Regular')
-            and ASSIGNMENT_STATUS_KEY not in (4, 17, 18, 20, 35))
+            and EMPLOYEE_FULL_PART_TIME_DESCR not in
+                ('Parttime-Temporary', 'Volunteer')
+            and (ASSIGNMENT_STATUS_KEY not in (4, 17, 18, 20, 35) or
+                (ASSIGNMENT_STATUS_KEY in (17, 18) and last_day_worked_dt >= TO_DATE(CONCAT('01 JUL ', EXTRACT(YEAR FROM ADD_MONTHS(CURRENT_DATE, -6)) - 5), 'DD MON YYYY')))
+            )
         or
         -- GSPH
         (RESPONSIBILITY_CENTER_CD = 34 and ASSIGNMENT_STATUS_KEY not in (4, 17, 18, 20, 35))
