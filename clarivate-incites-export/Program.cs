@@ -85,12 +85,12 @@ void RunExport(Options options)
     var dupes = orgHierarchy.GroupBy(o => long.Parse(o.OrganizationID)).Where(g => g.Count() > 1);
     foreach (var dupe in dupes)
     {
-        Console.WriteLine($"Duplicate organization id: {dupe.Key}");
-        foreach (var org in dupe) { Console.WriteLine(org.OrganizationName); }
+        Console.Error.WriteLine($"WARNING: Duplicate organization id: {dupe.Key}");
+        foreach (var org in dupe) { Console.Error.WriteLine(org.OrganizationName); }
     }
 
-    WriteToCsv(options.OrgHierarchyCsvOutputPath, orgHierarchy);
-    WriteToCsv(options.ResearchersCsvOutputPath, researcherRecords);
+    WriteToCsv(options.OrgHierarchyCsvOutputPath ?? $"org_{DateTime.Today:yyyy-MM-dd}.csv", orgHierarchy);
+    WriteToCsv(options.ResearchersCsvOutputPath ?? $"res_{DateTime.Today:yyyy-MM-dd}.csv", researcherRecords);
 }
 
 OracleConnection Connect(string connectionStringName)
