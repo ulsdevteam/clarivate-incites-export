@@ -157,7 +157,9 @@ where ranker = 1
                  'Adjunct', 'Lecturer', 'Scholar', 'Instructor'))
         or
         -- Dental Medicine
-        RESPONSIBILITY_CENTER_CD = 31
+        (RESPONSIBILITY_CENTER_CD = 31
+            and (ASSIGNMENT_STATUS_KEY not in (17, 18) or
+                 (ASSIGNMENT_STATUS_KEY in (17, 18) and last_day_worked_dt >= TO_DATE('01 JUL 2008', 'DD MON YYYY'))))
         or
         -- Pharmacy
         /* Excluded (13) (
